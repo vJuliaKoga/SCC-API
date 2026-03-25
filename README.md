@@ -1,222 +1,121 @@
-**テーマ:** BFF⇔Backend の疎通確認、性能比較、観測、API回帰テスト量産の最小構成を短期間で検証する
-
-## 1. 目的
-
-本PoCでは、BFF と Backend 間の API 品質を継続的に担保するために、以下を小さく検証する。
-
-* 疎通確認が安定して行えること
-* 性能比較を最低限のシナリオで実施できること
-* API 呼び出しの観測情報を取得し、可視化できること
-* API 回帰テストを量産し、実行可能であること
-* OpenAI API Key を使わずに成立すること
-
-## 2. 全体方針
-
-各ツールの責務を分離し、PoC段階でも役割が混ざらない構成とする。
-
-* 疎通確認は API クライアントで行う
-* 性能比較は負荷試験ツールで行う
-* 観測は OpenTelemetry を共通計装として導入する
-* 回帰テスト量産は Tusk Drift を用いる
-* 実行は既存テストランナーまたは CLI / CI に寄せる
-
-## 3. 採用候補ツールと役割
-
-### A. BFF⇔Backend の疎通確認
-
-* Postman
-* Bruno
-
-**推奨:** Bruno
-
-**理由:**
-
-* ローカル管理しやすい
-* Git で差分管理しやすい
-* CLI 実行しやすく、CI 接続を見据えやすい
-
-**PoCでやること:**
-
-* BFF から Backend へ到達する代表 API を 2〜3 本定義する
-* 正常系を確認する
-* 必要に応じて認証ヘッダや環境変数を整理する
-
-## 4. 性能比較
-
-### B. 性能比較
-
-* Grafana k6
-
-**役割:**
-
-* API の応答時間
-* 同時実行時の傾向
-* 改修前後の比較
-
-**PoCでやること:**
-
-* 代表 API を 1〜2 本選定する
-* 軽負荷シナリオを作る
-* 応答時間と失敗率を確認する
-
-**この段階ではやらないこと:**
-
-* 本格的な高負荷試験
-* 耐久試験
-* 大規模分散実行
-
-## 5. 観測
-
-### C. 観測
-
-* OpenTelemetry
-* Prometheus
-* 必要に応じて Jaeger
-
-**役割の整理:**
-
-* **OpenTelemetry**: 計装の共通基盤
-* **Prometheus**: メトリクス保存・参照
-* **Jaeger**: トレース可視化
-
-**推奨構成:**
-
-* metrics: OpenTelemetry + Prometheus
-* traces: OpenTelemetry + Jaeger
-
-**補足:**
-OpenTelemetry 単体では見やすい UI は持たないため、可視化先を別途用意する。
-今日だけの PoC であれば、**Jaeger をローカルで立てる**構成が最も軽い。
-
-**PoCでやること:**
-
-* BFF の代表 API に trace を仕込む
-* Backend 側にも trace を流す
-* 1 リクエストが BFF→Backend に渡る流れを Jaeger で確認する
-* メトリクスを Prometheus で確認できる状態にする
-
-## 6. 回帰テスト量産
-
-### D. 回帰テスト量産
-
-* Tusk 2.0
-* Tusk Drift
-
-**役割:**
-
-* 実トラフィックまたは検証トラフィックをもとに API テストを量産する
-* replay により回帰を検知する
-
-**方針:**
-
-* 本番ではなく検証用プロジェクトで実施する
-* OpenAI API Key は使用しない
-* 必要なら Tusk 側の設定のみで進める
-
-**PoCでやること:**
-
-* 検証環境で API 通信を記録する
-* replay 可能なケースを数本生成する
-* 改修前後で差分検知できるか確認する
-
-## 7. 量産したテストの実行
-
-### E. テスト実行
-
-* unit test: 既存テストランナー + CI
-* API replay: Tusk Drift CLI / Cloud
-
-**整理:**
-
-* 単体・統合テストは既存基盤に寄せる
-* API の replay 実行は Tusk に寄せる
-
-**PoCでやること:**
-
-* ローカルで replay 実行
-* 失敗時の見え方を確認
-* CI に載せる場合の最小手順を整理
-
-## 8. 推奨アーキテクチャ
-
-```text
-[Bruno]
-    └─ BFF API 呼び出し確認
-
-[k6]
-    └─ BFF/Backend の性能比較
-
-[BFF] --OTel--> [Collector] --> [Jaeger]
-   │                 └-------> [Prometheus]
-   └---- API ----> [Backend] --OTel-->
-
-[Tusk Drift]
-    ├─ 検証用トラフィック記録
-    ├─ replay 用テスト生成
-    └─ CLI / Cloud で実行
-
-[CI]
-    ├─ unit / integration test
-    └─ 必要に応じて Bruno / k6 / Tusk 実行
-```
-
-## 9. 今日やる範囲
-
-今日の PoC では、以下まで到達できれば成功とする。
-
-### 必須
-
-* Bruno で代表 API の疎通確認
-* OpenTelemetry を BFF と Backend の少なくとも片方、できれば両方に導入
-* Jaeger 上で trace 確認
-* k6 で 1 本の性能比較シナリオ実行
-* Tusk Drift で 1 回 record / replay 実行
-
-### できれば
-
-* Prometheus でメトリクス確認
-* Bruno または Tusk 実行の CI 化の雛形作成
-* replay 失敗時のログ確認
-
-## 10. 最小成果物
-
-PoC の成果物は以下とする。
-
-* Bruno のコレクション
-* k6 シナリオ 1〜2 本
-* OpenTelemetry 導入済みのサンプル実装
-* Jaeger で trace が見える状態
-* Tusk Drift の record / replay 実行結果
-* README またはセットアップメモ
-
-## 11. 成功条件
-
-以下を満たせば、PoC は成立と判断する。
-
-* BFF⇔Backend の疎通確認を再現できる
-* API の性能比較を簡単に再実行できる
-* リクエストの流れを trace として確認できる
-* replay ベースの API 回帰検知が最低1ケース成立する
-* OpenAI API Key なしで全体の流れが成立する
-
-## 12. リスクと注意点
-
-* OpenTelemetry は可視化先がないと見づらい
-* Prometheus はメトリクス中心であり、トレースの可視化には別基盤が必要
-* Tusk はまず検証用プロジェクトで試し、対象 API を絞る
-* 本番トラフィック投入は今回の PoC 範囲外とする
-* CI 連携は雛形レベルに留め、まずローカル再現性を優先する
-
-## 13. 結論
-
-今回の PoC においては、以下の分担が最も自然である。
-
-* **Bruno**: 疎通確認
-* **k6**: 性能比較
-* **OpenTelemetry**: 共通計装
-* **Prometheus**: メトリクス
-* **Jaeger**: トレース可視化
-* **Tusk Drift**: API 回帰テスト量産と replay
-* **既存テストランナー + CI**: 単体・統合テスト実行基盤
-
-この構成により、役割の重複を抑えながら、短期間で「つながる・見える・比べられる・壊れたら気づける」状態を確認できる。
+# SCC API PoC
+
+## 概要
+
+本リポジトリは、BFF-Backend 間の通信方式として REST と gRPC を比較するためのPJ実装です。
+
+本PJの目的は、一律な優劣を決定することではなく、各システムにおける採用判断の材料を得ることです。
+
+比較対象は以下の通りです。
+
+- REST 形式
+  - Spring Boot 想定
+  - HTTP/1.1
+  - JSON
+- gRPC 形式
+  - gRPC Java 想定
+  - HTTP/2
+  - バイナリ通信
+
+## 検証方針
+
+クライアントからの入口となる BFF は共通化し、BFF から Backend への内部通信のみを切り替えることで、通信方式以外の差分を最小化します。
+
+- BFF は共通
+- REST backend は Spring Boot ベース
+- gRPC backend は gRPC Java ベース
+- 業務ロジックは REST / gRPC で揃える
+- レスポンス項目は可能な限り共通化する
+
+## 構成
+
+- `bff`
+  - クライアント向け API
+  - Backend 呼び分け
+- `rest-backend`
+  - REST API 実装
+- `grpc-backend`
+  - gRPC API 実装
+- `observability`
+  - Jaeger / Prometheus のローカル確認用構成
+- `k6`
+  - 負荷試験シナリオ
+- `bruno`
+  - 疎通確認用コレクション
+- `docs`
+  - API 仕様、比較メモ、PoC 文書
+
+##PJの主な観点
+
+- 性能比較
+  - p50 / p95 / p99
+  - CPU 使用率
+  - メモリ使用量
+  - ガベージコレクションの傾向
+- 互換性
+  - フィールド追加 / 削除
+  - 型変更
+  - enum 追加
+  - v1 / v2 混在
+- 障害時挙動
+  - 再起動
+  - 接続切断
+  - 遅延
+  - エラー伝播
+  - リトライ挙動
+- 可観測性
+  - ログ可読性
+  - トレース取得
+  - 原因特定容易性
+  - curl / CLI による再現性
+- 運用・保守
+  - 変更手順の明確性
+  - CI での互換性検知
+  - 将来的な拡張性
+  - 運用スキル依存度
+
+## 初期スコープ
+
+PoC 初期フェーズでは、検証対象 API を最小限に絞ります。
+
+- `GET /health`
+- `GET /api/users/{id}`
+- `POST /api/orders`
+
+最初は DB を使わず、固定値またはインメモリで応答するダミー API とします。
+
+## BFF の切り替え方針
+
+BFF は同一の外部 API を公開し、内部で Backend 呼び出し方式を切り替えます。
+
+例:
+
+- `CALL_MODE=rest`
+- `CALL_MODE=grpc`
+
+これにより、Bruno / k6 のシナリオを共通化しやすくし、比較条件を揃えます。
+
+## ツール方針
+
+- 疎通確認
+  - Bruno
+- 性能比較
+  - k6
+- メトリクス
+  - Prometheus
+- 分散トレース
+  - OpenTelemetry
+  - Jaeger
+- API 回帰テスト量産
+  - Tusk Drift
+
+## 初期の完成ライン
+
+- BFF が起動する
+- REST backend が起動する
+- gRPC backend が起動する
+- `GET /health` が通る
+- `GET /api/users/1` が `CALL_MODE=rest` で返る
+- `GET /api/users/1` が `CALL_MODE=grpc` で返る
+- Jaeger で BFF→Backend の trace が確認できる
+- k6 で BFF に対する最小シナリオが実行できる
