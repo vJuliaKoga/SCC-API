@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package sccapi.grpcbackend.v1;
+
+option java_multiple_files = true;
+option java_package = "com.example.bff.proto";
+option java_outer_classname = "UserOrderProto";
+
+/*
+    ヘルスチェック用サービス
+*/
+service HealthService {
+    /*
+        サービスの生存確認を行う
+    */
+    rpc CheckHealth (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+/*
+    ユーザー取得用サービス
+*/
+service UserService {
+    /*
+        指定したユーザーIDの情報を返す
+    */
+    rpc GetUser (GetUserRequest) returns (GetUserResponse);
+}
+
+/*
+    注文作成用サービス
+*/
+service OrderService {
+    /*
+        注文を新規作成する
+    */
+    rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+}
+
+/*
+    ヘルスチェック要求
+*/
+message HealthCheckRequest {
+}
+
+/*
+    ヘルスチェック応答
+*/
+message HealthCheckResponse {
+    /*
+        サービス状態
+    */
+    string status = 1;
+
+    /*
+        サービス名
+    */
+    string service = 2;
+}
+
+/*
+    ユーザー取得要求
+*/
+message GetUserRequest {
+    /*
+        ユーザーID
+    */
+    string user_id = 1;
+}
+
+/*
+    ユーザー取得応答
+*/
+message GetUserResponse {
+    /*
+        ユーザーID
+    */
+    string user_id = 1;
+
+    /*
+        ユーザー名
+    */
+    string name = 2;
+
+    /*
+        ユーザー状態
+    */
+    UserStatus status = 3;
+}
+
+/*
+    注文作成要求
+*/
+message CreateOrderRequest {
+    /*
+        ユーザーID
+    */
+    string user_id = 1;
+
+    /*
+        商品コード
+    */
+    string item_code = 2;
+
+    /*
+        数量
+    */
+    int32 quantity = 3;
+}
+
+/*
+    注文作成応答
+*/
+message CreateOrderResponse {
+    /*
+        注文ID
+    */
+    string order_id = 1;
+
+    /*
+        受付結果
+    */
+    OrderResult result = 2;
+
+    /*
+        補足メッセージ
+    */
+    string message = 3;
+}
+
+/*
+    ユーザー状態
+*/
+enum UserStatus {
+    /*
+        既定値
+    */
+    USER_STATUS_UNSPECIFIED = 0;
+
+    /*
+        有効
+    */
+    USER_STATUS_ACTIVE = 1;
+
+    /*
+        無効
+    */
+    USER_STATUS_INACTIVE = 2;
+}
+
+/*
+    注文受付結果
+*/
+enum OrderResult {
+    /*
+        既定値
+    */
+    ORDER_RESULT_UNSPECIFIED = 0;
+
+    /*
+        受付成功
+    */
+    ORDER_RESULT_ACCEPTED = 1;
+
+    /*
+        受付拒否
+    */
+    ORDER_RESULT_REJECTED = 2;
+}

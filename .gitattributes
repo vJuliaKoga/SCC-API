@@ -1,0 +1,15 @@
+* text=auto
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.sh text eol=lf
+gradlew text eol=lf
+
+*.java text eol=lf
+*.kt text eol=lf
+*.groovy text eol=lf
+*.gradle text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.proto text eol=lf

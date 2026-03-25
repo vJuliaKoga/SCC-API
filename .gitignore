@@ -1,8 +1,19 @@
+# Gradle
 .gradle/
 **/.gradle/
+
+# Build artifacts
 build/
 **/build/
-*.lock.gradle/
-**/.gradle/
-build/
-**/build/
+out/
+**/out/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
