@@ -1,8 +1,11 @@
 package com.example.grpcbackend.config;
 
 import com.example.grpcbackend.service.HealthGrpcService;
+import com.example.grpcbackend.service.OrderGrpcService;
+import com.example.grpcbackend.service.UserGrpcService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -17,23 +20,31 @@ public class GrpcServerRunner {
 
     private final int port;
     private final HealthGrpcService healthGrpcService;
+    private final UserGrpcService userGrpcService;
+    private final OrderGrpcService orderGrpcService;
     private Server server;
 
     public GrpcServerRunner(
             @Value("${grpc.server.port}") int port,
-            HealthGrpcService healthGrpcService) throws IOException {
+            HealthGrpcService healthGrpcService,
+            UserGrpcService userGrpcService,
+            OrderGrpcService orderGrpcService) {
         this.port = port;
         this.healthGrpcService = healthGrpcService;
-        start();
+        this.userGrpcService = userGrpcService;
+        this.orderGrpcService = orderGrpcService;
     }
 
     /*
-     * アプリケーション起動時に gRPC サーバを開始する
+     * アプリケーション起動後に gRPC サーバを開始する
      */
-    private void start() throws IOException {
+    @PostConstruct
+    public void start() throws IOException {
         this.server = ServerBuilder
                 .forPort(port)
                 .addService(healthGrpcService)
+                .addService(userGrpcService)
+                .addService(orderGrpcService)
                 .build()
                 .start();
 

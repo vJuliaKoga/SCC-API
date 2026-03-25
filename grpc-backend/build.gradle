@@ -12,6 +12,9 @@ version = '0.0.1-SNAPSHOT'
 
 java {
     toolchain {
+        /*
+            Spring Boot 3.3 系に合わせて Java 21 を使用する
+        */
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
@@ -27,10 +30,16 @@ ext {
 
 dependencies {
     /*
-        Spring Boot の最小構成
+        HTTP サーバを起動するために Web Starter を追加する
+        Actuator のエンドポイントも HTTP 経由で確認できるようになる
     */
-    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    /*
+        Spring Boot の基本機能と Actuator
+    */
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter'
 
     /*
         gRPC サーバ実装に必要な依存関係
