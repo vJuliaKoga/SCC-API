@@ -1,1 +1,15 @@
+spring:
+    application:
+        name: rest-backend
 
+server:
+    port: 19092
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health,info,prometheus
+    endpoint:
+        health:
+            show-details: always

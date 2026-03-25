@@ -1,1 +1,23 @@
+spring:
+    application:
+        name: bff
 
+server:
+    port: 19090
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health,info,prometheus
+    endpoint:
+        health:
+            show-details: always
+
+app:
+    call-mode: rest
+    rest-backend:
+        base-url: http://localhost:19092
+    grpc-backend:
+        host: localhost
+        port: 29090

@@ -1,2 +1,8 @@
-/grpc-backend/.gradle
-/bff/.gradle
+.gradle/
+**/.gradle/
+build/
+**/build/
+*.lock.gradle/
+**/.gradle/
+build/
+**/build/
