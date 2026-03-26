@@ -5,7 +5,7 @@ import { orderApiThresholds } from "../../lib/thresholds.js";
 
 /*
     POST /api/orders の最小疎通確認用シナリオ
-    作成系 API のため、201 とレスポンス項目を確認する
+    失敗時に原因を切り分けやすいよう、ステータスとレスポンス本文を出力する
 */
 export const options = {
     vus: 1,
@@ -32,20 +32,22 @@ export default function () {
         }
     );
 
+    if (res.status !== 201) {
+        console.log(`[orders-post] status=${res.status} body=${res.body}`);
+    }
+
+    let body = {};
+    try {
+        body = res.json();
+    } catch (error) {
+        body = {};
+    }
+
     check(res, {
         "ステータスが201である": (r) => r.status === 201,
-        "orderId が返る": (r) => {
-            const body = r.json();
-            return body.orderId !== undefined && body.orderId !== null && body.orderId !== "";
-        },
-        "result が返る": (r) => {
-            const body = r.json();
-            return body.result !== undefined && body.result !== null && body.result !== "";
-        },
-        "message が返る": (r) => {
-            const body = r.json();
-            return body.message !== undefined && body.message !== null && body.message !== "";
-        }
+        "orderId が返る": () => body.orderId !== undefined && body.orderId !== null && body.orderId !== "",
+        "result が返る": () => body.result !== undefined && body.result !== null && body.result !== "",
+        "message が返る": () => body.message !== undefined && body.message !== null && body.message !== ""
     });
 
     sleep(1);

@@ -5,6 +5,7 @@
 - Bruno で API を 2〜3 本叩ける
 - Jaeger で trace を 1 本確認できる
 - k6 で smoke テストを 1 本回せる
+- k6 で benchmark 結果を REST / gRPC で比較できる
 - Tusk Drift で record / replay を 1 ケース試せる
 
 ## 手順
