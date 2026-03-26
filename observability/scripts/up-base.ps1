@@ -43,7 +43,7 @@ finally {
     Pop-Location
 }
 
-Wait-HttpReady -Url "http://localhost:3000/api/health"
+Wait-HttpReady -Url "http://localhost:13000/api/health"
 Wait-HttpReady -Url "http://localhost:19093/-/ready"
 Wait-HttpReady -Url "http://localhost:3200/ready"
 Wait-HttpReady -Url "http://localhost:3100/ready"
@@ -51,7 +51,7 @@ Wait-HttpReady -Url "http://localhost:13133"
 
 Write-Host ""
 Write-Host "統合観測基盤を起動しました。"
-Write-Host "Grafana     : http://localhost:3000"
+Write-Host "Grafana     : http://localhost:13000"
 Write-Host "Prometheus  : http://localhost:19093"
 Write-Host "Tempo Ready : http://localhost:3200/ready"
 Write-Host "Loki Ready  : http://localhost:3100/ready"

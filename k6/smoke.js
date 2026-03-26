@@ -4,7 +4,7 @@ import { check, sleep } from "k6";
 /*
     最小の疎通・応答確認用シナリオ
     使い方:
-    BASE_URL=http://host.docker.internal:3000 k6 run k6/smoke.js
+    BASE_URL=http://localhost:19090 k6 run k6/smoke.js
 */
 export const options = {
     vus: 1,
@@ -15,7 +15,7 @@ export const options = {
     }
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://host.docker.internal:3000";
+const BASE_URL = __ENV.BASE_URL || "http://localhost:19090";
 
 export default function () {
     const res = http.get(`${BASE_URL}/health`);

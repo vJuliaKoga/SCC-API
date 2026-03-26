@@ -32,7 +32,7 @@ logging:
             clean-history-on-start: false
 
 app:
-    call-mode: rest
+    call-mode: grpc
     rest-backend:
         base-url: http://localhost:19092
     grpc-backend:

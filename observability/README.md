@@ -18,7 +18,7 @@ docker compose up -d
 ```
 
 ## 主な確認先
-- Grafana: http://localhost:3000
+- Grafana: http://localhost:13000
 - Prometheus: http://localhost:19093
 - Tempo health: http://localhost:3200/ready
 - Loki health: http://localhost:3100/ready

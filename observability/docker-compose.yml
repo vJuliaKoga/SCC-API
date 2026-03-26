@@ -6,7 +6,7 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
     ports:
-      - "3000:3000"
+      - "13000:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -31,9 +31,10 @@ services:
       - otel-collector
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:2.8.3
     container_name: poc-tempo
     command:
+      - "-target=all"
       - "-config.file=/etc/tempo/tempo.yaml"
     ports:
       - "3200:3200"

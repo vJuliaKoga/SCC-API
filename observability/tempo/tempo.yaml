@@ -2,7 +2,7 @@ server:
   http_listen_port: 3200
 
 stream_over_http_enabled: true
-search_enabled: true
+# search_enabled was removed in Tempo 2.x; search is enabled by default.
 
 distributor:
   receivers:
