@@ -1,8 +1,8 @@
-# REST vs gRPC 比較サマリー（単体実行版）
+# REST vs gRPC 比較サマリー（暫定版）
 
 ## 1. 前提
 
-本結果はローカル環境における単体実行ベースの比較である。
+本結果はローカル環境における PoC ベースの比較である。
 
 - 計測対象: BFF (`http://localhost:19090`)
 - 比較方式:
@@ -12,7 +12,12 @@
     - `GET /api/users/{id}`
     - `POST /api/orders`
 
-※ 本結果は単回実行ベースのため、最終判断には CI 等での複数回実行による再確認が必要。
+本資料は、以下の結果を横断的に整理した暫定サマリーである。
+
+- `docs/benchmark-results.md`
+- `docs/trace-results.md`
+
+※ 最終判断には、CI 等での複数回実行とエラー系を含む再確認が必要。
 
 ---
 
@@ -21,60 +26,108 @@
 ### 2.1 GET /api/users/{id}
 
 - REST:
-    - p95:
-    - p99:
-    - error rate:
+    - 単回結果ではわずかに低レイテンシ
+    - error rate は 0.00%
 
 - gRPC:
-    - p95:
-    - p99:
-    - error rate:
+    - REST とほぼ同等
+    - error rate は 0.00%
 
 - 所感:
-    - 今回の単回結果では REST がわずかに低レイテンシ
-    - ただし差は小さく、誤差の可能性あり
+    - 読み取り系 API では差は小さい
+    - 単回実行のため、環境差や揺らぎの影響を含む可能性がある
 
 ---
 
 ### 2.2 POST /api/orders
 
 - REST:
-    - p95:
-    - p99:
-    - error rate:
+    - gRPC よりやや高め
+    - error rate は 0.00%
 
 - gRPC:
-    - p95:
-    - p99:
-    - error rate:
+    - p95 / p99 / max が REST より低め
+    - error rate は 0.00%
 
 - 所感:
-    - gRPC の方が p95 / p99 / max が低く、やや優位
-    - 書き込み系 API では差が見えやすい傾向
+    - 書き込み系 API では gRPC がやや優位
+    - 差は見えているが、複数回比較での再確認が必要
 
 ---
 
-## 3. 全体所感
+## 3. 可観測性比較（OpenTelemetry / Jaeger）
+
+### 3.1 GET /api/users/{id} の trace 観測結果
+
+- REST / gRPC ともに、`GET /api/users/{id}` について 10 trace を取得
+- いずれも 1 trace あたり 3 span
+- BFF -> backend の分散トレース連携を確認
+
+### 3.2 REST の見え方
+
+- span 構造:
+    - `bff: GET /api/users/{id}`
+    - `bff: GET`
+    - `rest-backend: GET /api/users/{id}`
+- 正常系ステータスは全件 `200`
+- duration 中央値:
+    - BFF server span: 11.44ms
+    - BFF outbound span: 6.70ms
+    - backend server span: 3.80ms
+
+### 3.3 gRPC の見え方
+
+- span 構造:
+    - `bff: GET /api/users/{id}`
+    - `bff: sccapi.grpcbackend.v1.UserService/GetUser`
+    - `grpc-backend: sccapi.grpcbackend.v1.UserService/GetUser`
+- 正常系ステータスは全件 `status_code=0`
+- duration 中央値:
+    - BFF server span: 9.36ms
+    - BFF outbound span: 5.93ms
+    - backend server span: 2.34ms
+- 大きめの外れ値が 1 件あり、最大 trace は以下
+    - BFF server span: 1.717s
+    - BFF outbound span: 1.270s
+    - backend server span: 182ms
+
+### 3.4 可観測性の所感
+
+- REST / gRPC ともに trace 自体は問題なくつながっている
+- gRPC は service / method 名が span に現れるため、操作単位で追いやすい
+- REST は backend 側 route は読みやすいが、BFF outbound span 名は `GET` のみで簡素
+- 通常系中央値では gRPC がやや低レイテンシ
+- ただし gRPC には外れ値があり、安定性は継続観測が必要
+
+---
+
+## 4. 全体所感
 
 - 両モードとも error rate は 0.00% で安定している
-- 読み取り系 API では REST / gRPC の差は小さい
+- 読み取り系 API では性能差は小さい
 - 書き込み系 API では gRPC がやや低レイテンシ
-- 今回の結果は単体実行のため、環境差・揺らぎの影響を含む可能性あり
+- 可観測性の観点では、gRPC は method 単位で追いやすく、REST は route 単位で把握しやすい
+- `GET /api/users/{id}` では、k6 単回結果では REST がわずかに低レイテンシだった一方、trace 単回観測の中央値では gRPC がやや低かった
+- この差は、計測粒度の違いと外れ値の影響を含むため、現時点では「読み取り系は差が小さい」と整理するのが妥当である
+- 現時点では、性能は用途次第、可観測性は gRPC がやや優位という傾向が見えている
 
 ---
 
-## 4. 現時点の暫定結論
+## 5. 現時点の暫定結論
 
 - 性能面では、用途によって優位性が分かれる
     - 読み取り系: 差は小さい
     - 書き込み系: gRPC がやや有利
-- ただし決定的な差とは言えず、追加検証が必要
+- 可観測性の面では、gRPC は span 名の明瞭さによりやや優位
+- ただし gRPC には外れ値があり、最終判断には複数回実行と追加検証が必要
+- 現段階では、内部サービス間通信としての gRPC には前向きな材料が揃いつつあるが、安定性確認のため warm 状態での継続観測を行いたい
 
 ---
 
-## 5. Next Action
+## 6. Next Action
 
-- k6 を CI 上で定期実行
-- 複数回実行による中央値比較
-- OpenTelemetry による trace 分析
-- REST / gRPC の内部処理時間の分解
+- `POST /api/orders` の trace を REST / gRPC で取得する
+- エラー系 trace を取得し、見え方を比較する
+- k6 を複数回実行し、中央値ベースで比較する
+- warm 状態で `GET /api/users/{id}` の trace を再取得し、外れ値の再現性を確認する
+- 必要に応じて Collector 経由構成へ拡張する

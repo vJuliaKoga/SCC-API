@@ -1,0 +1,134 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # BFF のログファイルを監視する。
+  filelog/bff:
+    include:
+      - /var/log/scc-api/bff.log
+    start_at: beginning
+    include_file_name: true
+    include_file_path: true
+    resource:
+      service.name: bff
+      deployment.environment: local
+    operators:
+      - type: regex_parser
+        # application.yml 側の 1 行ログ形式をそのまま解析する。
+        regex: '^(?P<timestamp>\S+) level=(?P<level>\S+) service=(?P<service>\S+) trace_id=(?P<trace_id>\S*) span_id=(?P<span_id>\S*) logger=(?P<logger>\S+) thread=(?P<thread>\S+) message=(?P<message>.*)$'
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: strptime
+          layout: "%Y-%m-%dT%H:%M:%S.%L%z"
+        severity:
+          parse_from: attributes.level
+
+  # REST backend のログファイルを監視する。
+  filelog/rest-backend:
+    include:
+      - /var/log/scc-api/rest-backend.log
+    start_at: beginning
+    include_file_name: true
+    include_file_path: true
+    resource:
+      service.name: rest-backend
+      deployment.environment: local
+    operators:
+      - type: regex_parser
+        regex: '^(?P<timestamp>\S+) level=(?P<level>\S+) service=(?P<service>\S+) trace_id=(?P<trace_id>\S*) span_id=(?P<span_id>\S*) logger=(?P<logger>\S+) thread=(?P<thread>\S+) message=(?P<message>.*)$'
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: strptime
+          layout: "%Y-%m-%dT%H:%M:%S.%L%z"
+        severity:
+          parse_from: attributes.level
+
+  # gRPC backend のログファイルを監視する。
+  filelog/grpc-backend:
+    include:
+      - /var/log/scc-api/grpc-backend.log
+    start_at: beginning
+    include_file_name: true
+    include_file_path: true
+    resource:
+      service.name: grpc-backend
+      deployment.environment: local
+    operators:
+      - type: regex_parser
+        regex: '^(?P<timestamp>\S+) level=(?P<level>\S+) service=(?P<service>\S+) trace_id=(?P<trace_id>\S*) span_id=(?P<span_id>\S*) logger=(?P<logger>\S+) thread=(?P<thread>\S+) message=(?P<message>.*)$'
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: strptime
+          layout: "%Y-%m-%dT%H:%M:%S.%L%z"
+        severity:
+          parse_from: attributes.level
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  batch:
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+  # OpenTelemetry metrics を Prometheus が scrape できる形式で公開する。
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  debug:
+    verbosity: normal
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions:
+    - health_check
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - batch
+      exporters:
+        - otlp/tempo
+        - debug
+
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - batch
+      exporters:
+        - prometheus
+
+    logs:
+      receivers:
+        - otlp
+        - filelog/bff
+        - filelog/rest-backend
+        - filelog/grpc-backend
+      processors:
+        - memory_limiter
+        - batch
+      exporters:
+        - otlphttp/loki
+        - debug

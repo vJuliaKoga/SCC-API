@@ -36,6 +36,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     /*
+        Prometheus 形式でメトリクスを公開するための依存関係
+    */
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    /*
         gRPC クライアントに必要な依存関係
     */
     implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
