@@ -122,6 +122,18 @@
 - ただし gRPC には外れ値があり、最終判断には複数回実行と追加検証が必要
 - 現段階では、内部サービス間通信としての gRPC には前向きな材料が揃いつつあるが、安定性確認のため warm 状態での継続観測を行いたい
 
+## 暫定サマリ
+
+REST / gRPC 比較のためのローカル検証基盤は完成した。BFF による backend 切替、OpenTelemetry による観測、Grafana / Prometheus / Tempo / Loki / OpenTelemetry Collector による可視化、および k6 による負荷試験の統合までを確認済みである。
+
+また、orders-write シナリオ用の k6 スクリプトも修正し、k6 summary 上で正常系チェックが 100% 成功することを確認した。
+
+一方で、k6 を OpenTelemetry Collector 経由で Prometheus に取り込んだ際、一部 run において checks 系メトリクスや condition ラベルの揺れが確認され、Grafana 上で error rate や check success rate を単純計算すると実行実態と一致しないケースがあった。
+
+このため、比較の正式値としては k6 summary の値を採用し、Grafana は raw checks、trace、logs の確認用途に利用する方針とした。
+
+今後は users-read / orders-write の各シナリオについて、REST / gRPC を各 3 回ずつ実行し、p95、req/sec、error rate を比較する。
+
 ---
 
 ## 6. Next Action

@@ -52,3 +52,20 @@
 - span 名の見え方は gRPC の方が明確で、BFF 側 outbound / backend 側ともに RPC メソッド名がそのまま出るため、追跡しやすかった。
 - duration は中央値ベースで gRPC が REST より低く、今回の単回観測では gRPC がやや低レイテンシだった。
 - ただし gRPC には 1717.47ms の外れ値 1 件があり、平均値だけで評価すると実態を見誤るため、継続比較では中央値ベースの確認を優先したい。
+
+---
+## 4. 観測基盤の構築結果
+
+ローカル環境上に観測基盤を構築し、REST / gRPC の両系統でトレース、メトリクス、ログを可視化できる状態を確認した。
+
+構成要素は Grafana、Prometheus、Tempo、Loki、OpenTelemetry Collector であり、各 Spring Boot サービスには OpenTelemetry Java Agent を導入している。これにより、BFF、REST backend、gRPC backend をまたいだ分散トレースの可視化が可能になった。
+
+また、k6 の実行結果を `--out opentelemetry` で Collector に送信し、Prometheus / Grafana から参照できる状態を整備した。これにより、アプリケーション観測データと負荷試験結果を同一基盤上で確認できる。
+
+確認済みの内容は以下の通り。
+
+- REST / gRPC の両方で API 動作を確認
+- trace が Tempo に送信されることを確認
+- metrics が Prometheus に収集されることを確認
+- logs が Loki に収集されることを確認
+- Grafana 上で k6 の raw checks を参照できることを確認

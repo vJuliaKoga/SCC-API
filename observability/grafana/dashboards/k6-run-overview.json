@@ -1,775 +1,152 @@
 {
-    "annotations": {
-        "list": [
-            {
-                "builtIn": 1,
-                "datasource": {
-                    "type": "grafana",
-                    "uid": "-- Grafana --"
-                },
-                "enable": true,
-                "hide": true,
-                "iconColor": "rgba(0, 211, 255, 1)",
-                "name": "Annotations & Alerts",
-                "type": "dashboard"
-            }
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "check"
+          },
+          {
+            "desc": false,
+            "displayName": "condition"
+          },
+          {
+            "desc": false,
+            "displayName": "run_id"
+          }
         ]
-    },
-    "editable": true,
-    "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
-    "id": null,
-    "links": [],
-    "liveNow": false,
-    "panels": [
+      },
+      "pluginVersion": "12.0.0",
+      "targets": [
         {
-            "datasource": {
-                "type": "grafana",
-                "uid": "-- Grafana --"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "thresholds"
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            }
-                        ]
-                    }
-                }
-            },
-            "gridPos": {
-                "h": 6,
-                "w": 24,
-                "x": 0,
-                "y": 0
-            },
-            "id": 1,
-            "options": {
-                "content": "# 使い方\n\n- `run_id` で 1 回分の実行結果に絞り込む\n- `call_mode` で `rest` / `grpc` を切り替える\n- `api` で対象 API を絞り込む\n- k6 は `exported_job=\"k6\"` として取り込まれる\n- `scenario` は k6 組み込みラベルのため、今後は `test_case` タグの追加を推奨する",
-                "mode": "markdown"
-            },
-            "pluginVersion": "12.0.0",
-            "title": "ダッシュボードの見方",
-            "type": "text"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "thresholds"
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            }
-                        ]
-                    },
-                    "unit": "short"
-                }
-            },
-            "gridPos": {
-                "h": 6,
-                "w": 6,
-                "x": 0,
-                "y": 6
-            },
-            "id": 2,
-            "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "reduceOptions": {
-                    "calcs": [
-                        "lastNotNull"
-                    ],
-                    "fields": "",
-                    "values": false
-                },
-                "textMode": "auto"
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "sum(max_over_time(k6_http_reqs_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}[$__range]))",
-                    "instant": true,
-                    "legendFormat": "総リクエスト数",
-                    "range": false,
-                    "refId": "A"
-                }
-            ],
-            "title": "総リクエスト数",
-            "type": "stat"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "thresholds"
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            },
-                            {
-                                "color": "orange",
-                                "value": 1
-                            },
-                            {
-                                "color": "red",
-                                "value": 5
-                            }
-                        ]
-                    },
-                    "unit": "percent"
-                }
-            },
-            "gridPos": {
-                "h": 6,
-                "w": 6,
-                "x": 6,
-                "y": 6
-            },
-            "id": 3,
-            "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "reduceOptions": {
-                    "calcs": [
-                        "lastNotNull"
-                    ],
-                    "fields": "",
-                    "values": false
-                },
-                "textMode": "auto"
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "100 * (sum(increase(k6_http_req_failed_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\", condition=\"nonzero\"}[$__range])) / clamp_min(sum(increase(k6_http_req_failed_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\", condition=~\"zero|nonzero\"}[$__range])), 1))",
-                    "instant": true,
-                    "legendFormat": "エラー率",
-                    "range": false,
-                    "refId": "A"
-                }
-            ],
-            "title": "エラー率",
-            "type": "stat"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "thresholds"
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            }
-                        ]
-                    },
-                    "unit": "ms"
-                }
-            },
-            "gridPos": {
-                "h": 6,
-                "w": 6,
-                "x": 12,
-                "y": 6
-            },
-            "id": 4,
-            "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "reduceOptions": {
-                    "calcs": [
-                        "lastNotNull"
-                    ],
-                    "fields": "",
-                    "values": false
-                },
-                "textMode": "auto"
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "histogram_quantile(0.95, sum by (le) (rate(k6_http_req_duration_milliseconds_bucket{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}[$__rate_interval])))",
-                    "instant": true,
-                    "legendFormat": "p95",
-                    "range": false,
-                    "refId": "A"
-                }
-            ],
-            "title": "p95 応答時間",
-            "type": "stat"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "thresholds"
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            },
-                            {
-                                "color": "orange",
-                                "value": 95
-                            },
-                            {
-                                "color": "red",
-                                "value": 90
-                            }
-                        ]
-                    },
-                    "unit": "percent"
-                }
-            },
-            "gridPos": {
-                "h": 6,
-                "w": 6,
-                "x": 18,
-                "y": 6
-            },
-            "id": 5,
-            "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "reduceOptions": {
-                    "calcs": [
-                        "lastNotNull"
-                    ],
-                    "fields": "",
-                    "values": false
-                },
-                "textMode": "auto"
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "100 * (sum(increase(k6_checks_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\", check=~\"$check\", condition=\"nonzero\"}[$__range])) / clamp_min(sum(increase(k6_checks_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\", check=~\"$check\", condition=~\"zero|nonzero\"}[$__range])), 1))",
-                    "instant": true,
-                    "legendFormat": "チェック成功率",
-                    "range": false,
-                    "refId": "A"
-                }
-            ],
-            "title": "チェック成功率",
-            "type": "stat"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "custom": {
-                        "axisBorderShow": false,
-                        "axisCenteredZero": false,
-                        "axisColorMode": "text",
-                        "drawStyle": "line",
-                        "fillOpacity": 10,
-                        "lineInterpolation": "linear",
-                        "lineWidth": 2,
-                        "pointSize": 4,
-                        "showPoints": "never",
-                        "spanNulls": false
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            }
-                        ]
-                    },
-                    "unit": "reqps"
-                }
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 12
-            },
-            "id": 6,
-            "options": {
-                "legend": {
-                    "displayMode": "list",
-                    "placement": "bottom"
-                },
-                "tooltip": {
-                    "mode": "multi",
-                    "sort": "none"
-                }
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "sum by (run_id, call_mode, api) (rate(k6_http_reqs_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}[$__rate_interval]))",
-                    "legendFormat": "{{run_id}} {{call_mode}} {{api}}",
-                    "range": true,
-                    "refId": "A"
-                }
-            ],
-            "title": "リクエスト / 秒",
-            "type": "timeseries"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "custom": {
-                        "axisBorderShow": false,
-                        "axisCenteredZero": false,
-                        "axisColorMode": "text",
-                        "drawStyle": "line",
-                        "fillOpacity": 10,
-                        "lineInterpolation": "linear",
-                        "lineWidth": 2,
-                        "pointSize": 4,
-                        "showPoints": "never",
-                        "spanNulls": false
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            }
-                        ]
-                    },
-                    "unit": "ms"
-                }
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 12
-            },
-            "id": 7,
-            "options": {
-                "legend": {
-                    "displayMode": "list",
-                    "placement": "bottom"
-                },
-                "tooltip": {
-                    "mode": "multi",
-                    "sort": "none"
-                }
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "histogram_quantile(0.50, sum by (le, run_id, call_mode, api) (rate(k6_http_req_duration_milliseconds_bucket{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}[$__rate_interval])))",
-                    "legendFormat": "p50 {{run_id}} {{call_mode}} {{api}}",
-                    "range": true,
-                    "refId": "A"
-                },
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "histogram_quantile(0.95, sum by (le, run_id, call_mode, api) (rate(k6_http_req_duration_milliseconds_bucket{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}[$__rate_interval])))",
-                    "legendFormat": "p95 {{run_id}} {{call_mode}} {{api}}",
-                    "range": true,
-                    "refId": "B"
-                }
-            ],
-            "title": "応答時間 p50 / p95",
-            "type": "timeseries"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "custom": {
-                        "axisBorderShow": false,
-                        "axisCenteredZero": false,
-                        "axisColorMode": "text",
-                        "drawStyle": "line",
-                        "fillOpacity": 10,
-                        "lineInterpolation": "linear",
-                        "lineWidth": 2,
-                        "pointSize": 4,
-                        "showPoints": "never",
-                        "spanNulls": false
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            }
-                        ]
-                    },
-                    "unit": "binBps"
-                }
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 20
-            },
-            "id": 8,
-            "options": {
-                "legend": {
-                    "displayMode": "list",
-                    "placement": "bottom"
-                },
-                "tooltip": {
-                    "mode": "multi",
-                    "sort": "none"
-                }
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "sum by (run_id, call_mode, api) (rate(k6_data_received_bytes_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}[$__rate_interval]))",
-                    "legendFormat": "受信 {{run_id}} {{call_mode}} {{api}}",
-                    "range": true,
-                    "refId": "A"
-                },
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "sum by (run_id, call_mode, api) (rate(k6_data_sent_bytes_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}[$__rate_interval]))",
-                    "legendFormat": "送信 {{run_id}} {{call_mode}} {{api}}",
-                    "range": true,
-                    "refId": "B"
-                }
-            ],
-            "title": "送受信バイト / 秒",
-            "type": "timeseries"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "custom": {
-                        "align": "auto",
-                        "cellOptions": {
-                            "type": "auto"
-                        },
-                        "inspect": false
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            }
-                        ]
-                    },
-                    "unit": "short"
-                }
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 20
-            },
-            "id": 9,
-            "options": {
-                "cellHeight": "sm",
-                "footer": {
-                    "countRows": false,
-                    "fields": "",
-                    "reducer": [
-                        "sum"
-                    ],
-                    "show": false
-                },
-                "showHeader": true
-            },
-            "pluginVersion": "12.0.0",
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "sum by (check, condition) (increase(k6_checks_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\", check=~\"$check\"}[$__range]))",
-                    "format": "table",
-                    "instant": true,
-                    "legendFormat": "{{check}} {{condition}}",
-                    "range": false,
-                    "refId": "A"
-                }
-            ],
-            "title": "チェック結果",
-            "transformations": [
-                {
-                    "id": "organize",
-                    "options": {
-                        "excludeByName": {
-                            "Time": true,
-                            "__name__": true,
-                            "api": true,
-                            "call_mode": true,
-                            "exported_job": true,
-                            "git_sha": true,
-                            "instance": true,
-                            "job": true,
-                            "otel_scope_name": true,
-                            "run_id": true
-                        },
-                        "indexByName": {
-                            "Value": 2,
-                            "check": 0,
-                            "condition": 1
-                        },
-                        "renameByName": {
-                            "Value": "件数",
-                            "check": "チェック名",
-                            "condition": "結果種別"
-                        }
-                    }
-                }
-            ],
-            "type": "table"
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (check, condition, run_id, api, call_mode, scenario) (\n    last_over_time(\n        k6_checks_total[1h]\n    )\n)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{check}} {{condition}} {{run_id}} {{api}} {{call_mode}} {{scenario}}",
+          "range": false,
+          "refId": "A"
         }
-    ],
-    "refresh": "10s",
-    "schemaVersion": 39,
-    "style": "dark",
-    "tags": [
-        "observability",
-        "k6",
-        "poc"
-    ],
-    "templating": {
-        "list": [
-            {
-                "allValue": ".*",
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": ".*"
-                },
-                "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                },
-                "includeAll": true,
-                "label": "run_id",
-                "multi": true,
-                "name": "run_id",
-                "options": [],
-                "query": "label_values(k6_http_reqs_total{exported_job=\"k6\"}, run_id)",
-                "refresh": 2,
-                "type": "query"
+      ],
+      "title": "k6 checks raw",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
             },
-            {
-                "allValue": ".*",
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": ".*"
-                },
-                "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                },
-                "includeAll": true,
-                "label": "git_sha",
-                "multi": true,
-                "name": "git_sha",
-                "options": [],
-                "query": "label_values(k6_http_reqs_total{exported_job=\"k6\", run_id=~\"$run_id\"}, git_sha)",
-                "refresh": 2,
-                "type": "query"
+            "indexByName": {
+              "Value": 0,
+              "api": 4,
+              "call_mode": 5,
+              "check": 1,
+              "condition": 2,
+              "run_id": 3,
+              "scenario": 6
             },
-            {
-                "allValue": ".*",
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": ".*"
-                },
-                "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                },
-                "includeAll": true,
-                "label": "call_mode",
-                "multi": true,
-                "name": "call_mode",
-                "options": [],
-                "query": "label_values(k6_http_reqs_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\"}, call_mode)",
-                "refresh": 2,
-                "type": "query"
-            },
-            {
-                "allValue": ".*",
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": ".*"
-                },
-                "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                },
-                "includeAll": true,
-                "label": "api",
-                "multi": true,
-                "name": "api",
-                "options": [],
-                "query": "label_values(k6_http_reqs_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\"}, api)",
-                "refresh": 2,
-                "type": "query"
-            },
-            {
-                "allValue": ".*",
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": ".*"
-                },
-                "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                },
-                "includeAll": true,
-                "label": "check",
-                "multi": true,
-                "name": "check",
-                "options": [],
-                "query": "label_values(k6_checks_total{exported_job=\"k6\", run_id=~\"$run_id\", git_sha=~\"$git_sha\", call_mode=~\"$call_mode\", api=~\"$api\"}, check)",
-                "refresh": 2,
-                "type": "query"
+            "renameByName": {
+              "Value": "value"
             }
-        ]
-    },
-    "time": {
-        "from": "now-1h",
-        "to": "now"
-    },
-    "timepicker": {},
-    "timezone": "browser",
-    "title": "k6 実行結果 Overview",
-    "uid": "k6-run-overview",
-    "version": 1,
-    "weekStart": ""
+          }
+        }
+      ],
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": [
+    "k6",
+    "observability",
+    "poc"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-3d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "k6 実行結果 Overview",
+  "uid": "k6-run-overview",
+  "version": 1,
+  "weekStart": ""
 }
