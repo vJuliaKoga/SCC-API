@@ -24,8 +24,10 @@ jobs:
     permissions:
       contents: read
     env:
-      # REST 基準の HTTP テストケースを gRPC 実装に対して再生する。
+      # 正本は test-set-rest とする。
       KEPLOY_TEST_SET: test-set-rest
+      # 初回 green 用の clean smoke asset。
+      KEPLOY_FALLBACK_TEST_SET: test-set-rest-ci-smoke
       # Gradle 起動を伴うため、Keploy の待機は少し長めに取る。
       KEPLOY_DELAY: "80"
       # gRPC backend の起動待ち上限。
