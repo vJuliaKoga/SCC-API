@@ -484,7 +484,70 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 
 ---
 
-## 9. 補足メモ
+## 9. Keploy による通常 CI 回帰確認
+
+### 9-1. 位置づけ
+
+- 通常 CI の目的は、REST 基準で生成した Keploy テストケースを使って、gRPC 実装が BFF の外部 API 契約を壊していないかを確認することである
+- 通常 CI では、`bff/keploy/test-set-rest` を基準資産として使う
+- `bff/keploy/test-set-grpc` は補助的な比較資産であり、現時点では通常 CI の正本にはしない
+- REST backend の再 record は通常 CI に含めない
+- Bruno / k6 / Grafana も通常 CI の workflow には含めない
+
+### 9-2. 実行ファイル
+
+- workflow:
+  - `.github/workflows/keploy-grpc-regression.yml`
+- 実行スクリプト:
+  - `.github/scripts/run-keploy-grpc-regression.sh`
+
+### 9-3. workflow の実行概要
+
+1. GitHub Actions の `ubuntu-latest` ランナーで checkout する
+2. Java 21 をセットアップし、Gradle キャッシュを有効化する
+3. Keploy CLI を Linux native 方式でインストールする
+4. `grpc-backend` を実起動し、`19091/actuator/health` と `29090` の待受を確認する
+5. BFF は Keploy から `app.call-mode=grpc` で起動し、`test-set-rest` を使って `keploy test` を実行する
+6. 実行後に Keploy レポートとログを artifact として回収する
+
+現在の workflow では、Keploy 実行時に以下の方針を取っている。
+
+- `--path keploy`
+- `--test-sets test-set-rest`
+- `--mocking=false`
+- BFF は `--app.call-mode=grpc` で起動する
+
+### 9-4. `--mocking=false` を採用している意味
+
+- この workflow は、record 済み mock に閉じた純粋 replay を目的としていない
+- gRPC backend を実起動した状態で、REST 基準ケースに対して BFF の外部 API 契約が維持されているかを確認する
+- そのため、Keploy を使ってはいるが、位置づけとしては「REST 基準ケースを使った gRPC 実装の回帰確認」に近い
+- REST backend を起動しないのは、通常 CI で確認したい対象が「gRPC 実装が REST 基準の外部 API を壊していないか」であるためである
+
+### 9-5. 注意点
+
+- `test-set-rest` の更新は通常 CI では行わない
+- 基準ケースの更新が必要な場合は、Bruno による手動確認で外部 API の見え方を確認したうえで、Keploy YAML を手動で見直す
+- `test-set-grpc` は通常 CI の正本ではないため、運用判断なしに workflow の基準資産へ切り替えない
+- `--mocking=false` のため、失敗要因には Keploy の比較差分だけでなく、gRPC backend の起動不良や BFF の起動不良も含まれる
+- workflow は追加済みだが、この環境では GitHub Actions 上での実行確認までは未実施である
+
+### 9-6. 役割分担の整理
+
+- Bruno:
+  - 手動確認用
+  - 外部 API の見え方の確認用
+- Keploy:
+  - 通常 CI の回帰確認用
+  - REST 基準ケースを使った gRPC 実装の契約確認用
+- k6:
+  - 性能比較の正本
+- Grafana:
+  - 観測確認用
+
+---
+
+## 10. 補足メモ
 
 - PoC 段階では「ダッシュボードで全部の比較値を完結させる」よりも、「k6 summary を正本として比較表を固める」方が安定して進めやすい
 - Grafana は trace / logs / raw checks の確認基盤としては十分有効

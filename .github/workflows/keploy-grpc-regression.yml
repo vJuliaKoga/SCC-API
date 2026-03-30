@@ -1,0 +1,62 @@
+name: Keploy gRPC Regression
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/keploy-grpc-regression.yml"
+      - ".github/scripts/run-keploy-grpc-regression.sh"
+      - "bff/**"
+      - "grpc-backend/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/keploy-grpc-regression.yml"
+      - ".github/scripts/run-keploy-grpc-regression.sh"
+      - "bff/**"
+      - "grpc-backend/**"
+  workflow_dispatch:
+
+jobs:
+  keploy-grpc-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      # REST 基準の HTTP テストケースを gRPC 実装に対して再生する。
+      KEPLOY_TEST_SET: test-set-rest
+      # Gradle 起動を伴うため、Keploy の待機は少し長めに取る。
+      KEPLOY_DELAY: "80"
+      # gRPC backend の起動待ち上限。
+      GRPC_READY_TIMEOUT: "180"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install Keploy CLI
+        run: |
+          curl --silent --location "https://github.com/keploy/keploy/releases/latest/download/keploy_linux_amd64.tar.gz" | tar xz --overwrite -C /tmp
+          sudo install -m 0755 /tmp/keploy /usr/local/bin/keploy
+          keploy --version
+
+      - name: Run Keploy regression in grpc mode
+        run: bash .github/scripts/run-keploy-grpc-regression.sh
+
+      - name: Upload Keploy artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keploy-grpc-regression-artifacts
+          if-no-files-found: warn
+          path: |
+            artifacts/ci/keploy-grpc-regression
+            bff/keploy/reports
+            observability/logs

@@ -139,6 +139,35 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
   - 比較値は k6 summary、Grafana は raw checks / trace / logs 確認用という役割分担にすると運用が安定する
   - PJ 段階では「完全なダッシュボード化」よりも「再現可能な実行手順と比較ルールの固定化」の優先度が高い
 
+#### 5.1 Keploy を使った通常 CI の位置づけ
+
+通常 CI では、REST 基準で整備した Keploy の HTTP テストケースを用いて、gRPC 実装が BFF の外部 API 契約を壊していないかを確認する。
+
+- 基準資産:
+  - 通常 CI の正本は `bff/keploy/test-set-rest`
+  - `test-set-rest` は、Bruno による手動確認で外部 API の主要ケースを揃えた後に整備した基準資産として扱う
+  - `bff/keploy/test-set-grpc` は補助的な比較資産であり、現時点では通常 CI の正本にはしない
+
+- CI で確認すること:
+  - BFF を `app.call-mode=grpc` で起動したときに、`GET /api/users/{id}` と `POST /api/orders` の外部 API 契約が REST 基準ケースから外れていないこと
+  - gRPC backend を実起動した状態で、BFF 経由の外部 API 応答を回帰確認できること
+
+- CI で確認しないこと:
+  - REST backend の再 record
+  - Bruno による手動確認
+  - k6 を用いた性能比較
+  - Grafana を用いた観測確認
+
+- `--mocking=false` の意味:
+  - 現在の GitHub Actions workflow は、record 済み mock に閉じた純粋 replay ではなく、gRPC backend を実起動した状態での回帰確認として扱う
+  - そのため、この CI は「Keploy を使った純粋 replay」よりも、「REST 基準ケースを使った gRPC 実装の契約回帰確認」という位置づけが近い
+
+- 運用上の前提:
+  - REST 基準ケースの更新は通常 CI に含めず、手動運用に寄せる
+  - 基準ケースの見直しは、Bruno で外部 API の見え方を確認したうえで、Keploy YAML を更新する流れを前提にする
+  - 役割分担は、Bruno が手動確認、Keploy が CI 回帰確認、k6 が性能比較、Grafana が観測確認である
+  - GitHub Actions workflow 自体は追加済みだが、この環境では実行確認までは未実施である
+
 ### 6. Bruno による手動確認
 
 確認目的:
@@ -315,22 +344,22 @@ BFF は外部 API を共通化し、Backend 通信方式のみを比較対象と
 
 これにより、Backend 通信方式を切り替えても、利用者視点の外部 API が変わらない状態を目指す。
 
-#### 5. Bruno 再確認後に Tusk Drift へ進む
+#### 5. Bruno 再確認後に Keploy 基準ケースへ反映する
 
 今回確認した差分は、comparison-notes にはそのまま残す。
-ただし、Tusk Drift による record / replay や API 回帰テストへ進む前には、外部 API の正解を一意に定められる状態にしておく方がよい。
+ただし、Keploy を用いた通常 CI の回帰確認へ進む前には、外部 API の正解を一意に定められる状態にしておく方がよい。
 
 そのため、実装修正後は以下の順で進める。
 
 1. Bruno で正常系と主要エラー系を再確認する
 2. REST / gRPC の外部仕様が揃ったことを確認する
-3. その状態を正として Tusk Drift の record / replay に進む
+3. その状態を正として Keploy の基準ケースと CI 運用へ反映する
 
 #### 暫定結論
 
 - 差分を発見した事実は comparison-notes に保持する
 - 実装としては差分を修正する
-- 修正後の揃った外部 API を、今後の回帰確認や Tusk Drift の基準にする
+- 修正後の揃った外部 API を、今後の Keploy 回帰確認の基準にする
 
 ### 修正後
 
@@ -352,7 +381,7 @@ BFF は外部 API を共通化し、Backend 通信方式のみを比較対象と
 
 - Bruno による再確認ベースでは、比較対象 API の正常系と主要入力エラー系について、BFF の外部 API を REST / gRPC で揃えられた
 - これにより、Backend 通信方式の違いを利用者視点で意識しにくい状態へ近づけることができた
-- 今後 Tusk Drift による record / replay や API 回帰確認へ進める前提として、外部 API の正解を一意に定めやすくなった
+- 今後の Keploy 回帰確認へ進める前提として、外部 API の正解を一意に定めやすくなった
 
 ## 実施履歴
 
@@ -398,6 +427,8 @@ BFF は外部 API を共通化し、Backend 通信方式のみを比較対象と
   - BFF の `app.call-mode=rest` / `app.call-mode=grpc` を切り替え、Bruno 側の request 定義を固定したまま比較した
   - `GET /api/users/{id}` と `POST /api/orders` について、正常系および主要エラー系の見え方を確認した
   - Bruno 確認で見つかった外部仕様差分をもとに、REST / gRPC の返却値とエラー仕様の整合を進めた
+  - Keploy の HTTP テストケース YAML を CI 向けに整備し、`test-set-rest` を基準資産として gRPC 実装を回帰確認する GitHub Actions workflow を追加した
+  - comparison-notes / runbook に、Keploy を使った通常 CI の位置づけと運用前提を追記した
   - 修正後、Bruno で再確認し、比較対象 API の正常系および主要バリデーションエラー系について外部仕様が揃ったことを確認した
 
 - 対象 API:
@@ -427,7 +458,7 @@ BFF は外部 API を共通化し、Backend 通信方式のみを比較対象と
   - Bruno は BFF の URL を固定したまま `app.call-mode` 切替だけで比較でき、手動確認の再現性が高い
   - 差分は正常系よりもエラー系で見つかりやすく、外部 API の整合性確認に有効だった
   - Bruno 確認で差分を先に見つけてから実装を揃える進め方は、BFF の外部 API を比較可能な状態に整える上で有効だった
-  - 修正後は、比較対象 API の正常系と主要入力エラー系について外部 API の正解を一意に定めやすくなり、今後の Tusk Drift や回帰確認へ進めやすい状態になった
+  - 修正後は、比較対象 API の正常系と主要入力エラー系について外部 API の正解を一意に定めやすくなり、今後の Keploy 回帰確認へ進めやすい状態になった
 
 ## 最終まとめ欄
 
