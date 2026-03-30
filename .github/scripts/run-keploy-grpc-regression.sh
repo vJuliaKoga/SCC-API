@@ -13,7 +13,6 @@ KEPLOY_LOG="$LOG_DIR/keploy.log"
 KEPLOY_TEST_SET="${KEPLOY_TEST_SET:-test-set-rest}"
 KEPLOY_DELAY="${KEPLOY_DELAY:-80}"
 GRPC_READY_TIMEOUT="${GRPC_READY_TIMEOUT:-180}"
-KEPLOY_TEST_SET_DIR="$BFF_DIR/keploy/$KEPLOY_TEST_SET"
 
 print_log_tail() {
     local label="$1"
@@ -98,12 +97,19 @@ mkdir -p "$OBSERVABILITY_LOG_DIR"
 chmod +x "$BFF_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
 
 echo "Keploy 元配置を確認します。"
-find "$KEPLOY_TEST_SET_DIR" -maxdepth 3 -print | sort
+find "$BFF_DIR/keploy/$KEPLOY_TEST_SET" -maxdepth 3 -print | sort
 
-if [[ ! -d "$KEPLOY_TEST_SET_DIR" ]]; then
-    echo "Keploy test-set が存在しません: $KEPLOY_TEST_SET_DIR" >&2
-    exit 1
-fi
+echo "Keploy 3.3.62 が参照しやすい配置へ一時展開します。"
+rm -rf "$ROOT_DIR/$KEPLOY_TEST_SET"
+mkdir -p "$ROOT_DIR/$KEPLOY_TEST_SET/tests"
+
+cp "$BFF_DIR/keploy/$KEPLOY_TEST_SET/mocks.yaml" "$ROOT_DIR/$KEPLOY_TEST_SET/mocks.yaml"
+find "$BFF_DIR/keploy/$KEPLOY_TEST_SET/tests" -maxdepth 1 -type f -name "*.yaml" -print0 | while IFS= read -r -d '' file_path; do
+    cp "$file_path" "$ROOT_DIR/$KEPLOY_TEST_SET/tests/$(basename "$file_path")"
+done
+
+echo "Keploy 実行用の一時配置:"
+find "$ROOT_DIR/$KEPLOY_TEST_SET" -maxdepth 3 -print | sort
 
 echo "grpc-backend を起動します。"
 (
@@ -124,7 +130,7 @@ BFF_COMMAND='bash -lc '"'"'
 
 echo "Keploy で ${KEPLOY_TEST_SET} を gRPC 実装に対して実行します。"
 (
-    cd "$BFF_DIR"
+    cd "$ROOT_DIR"
     sudo -E env "PATH=$PATH" keploy test \
         --configPath "$ROOT_DIR/keploy.yml" \
         --path "$ROOT_DIR" \
