@@ -1,4 +1,4 @@
-name: Keploy gRPC Regression
+name: Keploy Regression
 
 on:
   pull_request:
@@ -6,6 +6,7 @@ on:
       - ".github/workflows/keploy-grpc-regression.yml"
       - ".github/scripts/run-keploy-grpc-regression.sh"
       - "bff/**"
+      - "rest-backend/**"
       - "grpc-backend/**"
   push:
     branches:
@@ -14,8 +15,19 @@ on:
       - ".github/workflows/keploy-grpc-regression.yml"
       - ".github/scripts/run-keploy-grpc-regression.sh"
       - "bff/**"
+      - "rest-backend/**"
       - "grpc-backend/**"
   workflow_dispatch:
+    inputs:
+      run_target:
+        description: "実行対象"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - grpc
+          - rest
 
 jobs:
   keploy-grpc-regression:
@@ -26,8 +38,12 @@ jobs:
     env:
       # 正本は test-set-rest とする。
       KEPLOY_TEST_SET: test-set-rest
+      # 通常 CI は rest -> grpc の順で直列実行し、手動実行時だけ対象を絞れるようにする。
+      KEPLOY_RUN_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.run_target || 'both' }}
       # Gradle 起動を伴うため、Keploy の待機は少し長めに取る。
       KEPLOY_DELAY: "80"
+      # REST backend の起動待ち上限。
+      REST_READY_TIMEOUT: "180"
       # gRPC backend の起動待ち上限。
       GRPC_READY_TIMEOUT: "180"
     steps:
@@ -47,7 +63,18 @@ jobs:
           sudo install -m 0755 /tmp/keploy /usr/local/bin/keploy
           keploy --version
 
+      - name: Run Keploy regression in rest mode
+        if: env.KEPLOY_RUN_TARGET == 'both' || env.KEPLOY_RUN_TARGET == 'rest'
+        env:
+          BFF_CALL_MODE: rest
+          RUN_LABEL: rest
+        run: bash .github/scripts/run-keploy-grpc-regression.sh
+
       - name: Run Keploy regression in grpc mode
+        if: env.KEPLOY_RUN_TARGET == 'both' || env.KEPLOY_RUN_TARGET == 'grpc'
+        env:
+          BFF_CALL_MODE: grpc
+          RUN_LABEL: grpc
         run: bash .github/scripts/run-keploy-grpc-regression.sh
 
       - name: Upload Keploy artifacts
@@ -57,6 +84,6 @@ jobs:
           name: keploy-grpc-regression-artifacts
           if-no-files-found: warn
           path: |
-            artifacts/ci/keploy-grpc-regression
+            artifacts/ci/keploy-regression
             bff/keploy/reports
             observability/logs

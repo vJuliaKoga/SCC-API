@@ -4,15 +4,20 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BFF_DIR="$ROOT_DIR/bff"
+REST_BACKEND_DIR="$ROOT_DIR/rest-backend"
 GRPC_BACKEND_DIR="$ROOT_DIR/grpc-backend"
 KEPLOY_PROJECT_ROOT="$BFF_DIR"
 KEPLOY_ASSET_ROOT="$BFF_DIR/keploy"
-LOG_DIR="$ROOT_DIR/artifacts/ci/keploy-grpc-regression"
+RUN_LABEL="${RUN_LABEL:-${BFF_CALL_MODE:-grpc}}"
+LOG_DIR="$ROOT_DIR/artifacts/ci/keploy-regression/${RUN_LABEL}"
+REST_LOG="$LOG_DIR/rest-backend.log"
 GRPC_LOG="$LOG_DIR/grpc-backend.log"
 KEPLOY_LOG="$LOG_DIR/keploy.log"
 
 PRIMARY_TEST_SET="${KEPLOY_TEST_SET:-test-set-rest}"
+BFF_CALL_MODE="${BFF_CALL_MODE:-grpc}"
 KEPLOY_DELAY="${KEPLOY_DELAY:-80}"
+REST_READY_TIMEOUT="${REST_READY_TIMEOUT:-180}"
 GRPC_READY_TIMEOUT="${GRPC_READY_TIMEOUT:-180}"
 ACTIVE_TEST_SET="$PRIMARY_TEST_SET"
 
@@ -28,6 +33,17 @@ print_log_tail() {
         echo "===== ${label} (tail -n 80) ====="
         tail -n 80 "$file_path"
     fi
+}
+
+validate_call_mode() {
+    case "$BFF_CALL_MODE" in
+        grpc|rest)
+            ;;
+        *)
+            echo "BFF_CALL_MODE は grpc または rest を指定してください: ${BFF_CALL_MODE}" >&2
+            return 1
+            ;;
+    esac
 }
 
 wait_for_http() {
@@ -112,6 +128,8 @@ select_active_test_set() {
 print_active_test_set_summary() {
     local test_set_dir="$KEPLOY_ASSET_ROOT/${ACTIVE_TEST_SET}"
 
+    print_info "実行ラベル: ${RUN_LABEL}"
+    print_info "BFF call-mode: ${BFF_CALL_MODE}"
     print_info "使用する test-set: ${ACTIVE_TEST_SET}"
     print_info "Keploy project root: ${KEPLOY_PROJECT_ROOT}"
     print_info "Keploy asset root: ${KEPLOY_ASSET_ROOT}"
@@ -119,10 +137,49 @@ print_active_test_set_summary() {
     find "$test_set_dir/tests" -maxdepth 1 -type f -name "*.yaml" | sort
 }
 
+start_rest_backend() {
+    print_info "rest-backend を起動します。"
+    (
+        cd "$REST_BACKEND_DIR"
+        ./gradlew --no-daemon bootRun > "$REST_LOG" 2>&1
+    ) &
+    REST_PID=$!
+
+    wait_for_http "rest-backend actuator" "http://127.0.0.1:19092/actuator/health" "$REST_READY_TIMEOUT"
+}
+
+start_grpc_backend() {
+    print_info "grpc-backend を起動します。"
+    (
+        cd "$GRPC_BACKEND_DIR"
+        ./gradlew --no-daemon bootRun > "$GRPC_LOG" 2>&1
+    ) &
+    GRPC_PID=$!
+
+    wait_for_http "grpc-backend actuator" "http://127.0.0.1:19091/actuator/health" "$GRPC_READY_TIMEOUT"
+    wait_for_port "grpc-backend gRPC" "127.0.0.1" "29090" "$GRPC_READY_TIMEOUT"
+}
+
+start_backend_for_call_mode() {
+    case "$BFF_CALL_MODE" in
+        rest)
+            start_rest_backend
+            ;;
+        grpc)
+            start_grpc_backend
+            ;;
+    esac
+}
+
 cleanup() {
     local exit_code=$?
 
     set +e
+
+    if [[ -n "${REST_PID:-}" ]] && kill -0 "$REST_PID" 2>/dev/null; then
+        kill "$REST_PID" 2>/dev/null || true
+        wait "$REST_PID" 2>/dev/null || true
+    fi
 
     if [[ -n "${GRPC_PID:-}" ]] && kill -0 "$GRPC_PID" 2>/dev/null; then
         kill "$GRPC_PID" 2>/dev/null || true
@@ -132,6 +189,7 @@ cleanup() {
     sudo chown -R "$USER":"$USER" "$ROOT_DIR/bff/keploy/reports" "$ROOT_DIR/observability/logs" 2>/dev/null || true
 
     if [[ $exit_code -ne 0 ]]; then
+        print_log_tail "rest-backend.log" "$REST_LOG"
         print_log_tail "grpc-backend.log" "$GRPC_LOG"
         print_log_tail "keploy.log" "$KEPLOY_LOG"
     fi
@@ -142,28 +200,22 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$LOG_DIR"
+: > "$REST_LOG"
 : > "$GRPC_LOG"
 : > "$KEPLOY_LOG"
 
-chmod +x "$BFF_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
+chmod +x "$BFF_DIR/gradlew" "$REST_BACKEND_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
 
+validate_call_mode
 select_active_test_set
 print_active_test_set_summary
 
-print_info "grpc-backend を起動します。"
-(
-    cd "$GRPC_BACKEND_DIR"
-    ./gradlew --no-daemon bootRun > "$GRPC_LOG" 2>&1
-) &
-GRPC_PID=$!
-
-wait_for_http "grpc-backend actuator" "http://127.0.0.1:19091/actuator/health" "$GRPC_READY_TIMEOUT"
-wait_for_port "grpc-backend gRPC" "127.0.0.1" "29090" "$GRPC_READY_TIMEOUT"
+start_backend_for_call_mode
 
 # BFF は Keploy に起動させる。sudo 実行時でも元ユーザーの Gradle キャッシュを使う。
-BFF_COMMAND='bash -lc '"'"'USER_HOME="$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6)"; export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$USER_HOME/.gradle}"; ./gradlew --no-daemon bootRun --args="--app.call-mode=grpc"'"'"''
+BFF_COMMAND="bash -lc 'USER_HOME=\"\$(getent passwd \"\${SUDO_USER:-\$USER}\" | cut -d: -f6)\"; export GRADLE_USER_HOME=\"\${GRADLE_USER_HOME:-\$USER_HOME/.gradle}\"; ./gradlew --no-daemon bootRun --args=\"--app.call-mode=${BFF_CALL_MODE}\"'"
 
-print_info "Keploy で ${ACTIVE_TEST_SET} を gRPC 実装に対して実行します。"
+print_info "Keploy で ${ACTIVE_TEST_SET} を ${BFF_CALL_MODE} 実装に対して実行します。"
 (
     cd "$BFF_DIR"
     sudo -E env "PATH=$PATH" keploy test \
