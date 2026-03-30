@@ -12,11 +12,9 @@ GRPC_LOG="$LOG_DIR/grpc-backend.log"
 KEPLOY_LOG="$LOG_DIR/keploy.log"
 
 PRIMARY_TEST_SET="${KEPLOY_TEST_SET:-test-set-rest}"
-FALLBACK_TEST_SET="${KEPLOY_FALLBACK_TEST_SET:-test-set-rest-ci-smoke}"
-FALLBACK_RUNTIME_TEST_SET="test-set-0"
 KEPLOY_DELAY="${KEPLOY_DELAY:-80}"
 GRPC_READY_TIMEOUT="${GRPC_READY_TIMEOUT:-180}"
-ACTIVE_TEST_SET=""
+ACTIVE_TEST_SET="$PRIMARY_TEST_SET"
 
 print_info() {
     echo "[keploy-ci] $1"
@@ -101,31 +99,14 @@ test_set_contains_generic_mocks() {
     grep -Eq "^kind: Generic$" "$mocks_file"
 }
 
-prepare_runtime_fallback_test_set() {
-    local source_dir="$KEPLOY_ASSET_ROOT/${FALLBACK_TEST_SET}"
-    local runtime_dir="$KEPLOY_ASSET_ROOT/${FALLBACK_RUNTIME_TEST_SET}"
-
-    ensure_test_set_layout "$FALLBACK_TEST_SET"
-
-    if [[ -d "$runtime_dir" ]]; then
-        rm -rf "$runtime_dir"
-    fi
-
-    cp -R "$source_dir" "$runtime_dir"
-    ACTIVE_TEST_SET="$FALLBACK_RUNTIME_TEST_SET"
-}
-
 select_active_test_set() {
     ensure_test_set_layout "$PRIMARY_TEST_SET"
 
     if test_set_contains_generic_mocks "$PRIMARY_TEST_SET"; then
-        print_info "${PRIMARY_TEST_SET} は Generic mock を含んでおり、CI replay 用 asset として汚染されています。"
-        print_info "${FALLBACK_TEST_SET} を source として、Keploy が既知で扱えていた数値系 test-set 名 ${FALLBACK_RUNTIME_TEST_SET} へ staging します。"
-        prepare_runtime_fallback_test_set
-        return 0
+        echo "${PRIMARY_TEST_SET} は Generic mock を含んでおり、通常 CI の正本として使えません。" >&2
+        echo "bff/keploy/${PRIMARY_TEST_SET}/mocks.yaml を clean 化してから再実行してください。" >&2
+        return 1
     fi
-
-    ACTIVE_TEST_SET="$PRIMARY_TEST_SET"
 }
 
 print_active_test_set_summary() {
@@ -146,10 +127,6 @@ cleanup() {
     if [[ -n "${GRPC_PID:-}" ]] && kill -0 "$GRPC_PID" 2>/dev/null; then
         kill "$GRPC_PID" 2>/dev/null || true
         wait "$GRPC_PID" 2>/dev/null || true
-    fi
-
-    if [[ -n "${ACTIVE_TEST_SET:-}" ]] && [[ "$ACTIVE_TEST_SET" == "$FALLBACK_RUNTIME_TEST_SET" ]]; then
-        rm -rf "$KEPLOY_ASSET_ROOT/$FALLBACK_RUNTIME_TEST_SET" 2>/dev/null || true
     fi
 
     sudo chown -R "$USER":"$USER" "$ROOT_DIR/bff/keploy/reports" "$ROOT_DIR/observability/logs" 2>/dev/null || true
