@@ -419,8 +419,6 @@ BFF は外部 API を共通化し、Backend 通信方式のみを比較対象と
 
 ### 2026-03-30
 
-### 2026-03-30
-
 - 実施内容:
   - Bruno を導入し、Collection `SCC-API` を作成した
   - BFF (`http://localhost:19090`) に対する確認 request として `GET users` / `POST order` を作成した
@@ -459,6 +457,28 @@ BFF は外部 API を共通化し、Backend 通信方式のみを比較対象と
   - 差分は正常系よりもエラー系で見つかりやすく、外部 API の整合性確認に有効だった
   - Bruno 確認で差分を先に見つけてから実装を揃える進め方は、BFF の外部 API を比較可能な状態に整える上で有効だった
   - 修正後は、比較対象 API の正常系と主要入力エラー系について外部 API の正解を一意に定めやすくなり、今後の Keploy 回帰確認へ進めやすい状態になった
+
+### 2026-03-30
+
+- 追加実施内容:
+  - Keploy CI の `test-set-rest` を通常 CI 用 asset として見直し、`mocks.yaml` から `kind: Generic` を除去した
+  - `.github/scripts/run-keploy-grpc-regression.sh` を修正し、Keploy の `--path` を project root 前提に合わせた
+  - script 側で `test-set-rest` の layout 確認と `Generic` 混入チェックを行い、汚れた asset を通常 CI で使わないようにした
+  - GitHub Actions workflow を拡張し、`workflow_dispatch` では `both` / `rest` / `grpc` を選択可能にした
+  - 通常 CI では `rest -> grpc` の順に直列実行する構成へ整理した
+  - GitHub Actions 上で `rest` / `grpc` の直列実行を実施し、両方の Keploy 回帰確認が成立することを確認した
+
+- 追加結果概要:
+  - `test-set-rest` を用いた Keploy 実行で 8 件すべて PASS した
+  - `app.call-mode=rest` でも `app.call-mode=grpc` でも、同じ `test-set-rest` を基準に回帰確認できた
+  - これにより、通常 CI では「REST 基準ケース自体の健全性確認」と「gRPC 実装が基準ケースを壊していないかの確認」を同一 workflow で直列に実行できる状態になった
+  - `--mocking=false` 前提で backend 実起動込みの回帰確認として成立した
+
+- 追加の気づき:
+  - 今回の CI は pure replay ではなく、REST 基準ケースを使った backend 実起動込みの統合回帰確認として扱うのが適切である
+  - `test-set-rest` に `kind: Generic` が混入すると、Keploy が通常 CI 用 asset として扱いにくくなるため、正本を clean に保つ運用が重要である
+  - `rest -> grpc` の直列実行を通したことで、基準ケースの妥当性確認と gRPC 回帰確認を分けて捉えやすくなった
+  - Bruno が外部 API の正解決め、Keploy が通常 CI の回帰確認、k6 が性能比較、Grafana が観測確認、という役割分担をより明確にできた
 
 ## 最終まとめ欄
 

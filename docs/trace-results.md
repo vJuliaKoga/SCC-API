@@ -125,3 +125,27 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 - 観測基盤統合により、trace / metrics / logs / k6 を同一基盤で確認できる状態は整った。
 - 一方で、Collector 経由の k6 rate 系集計には run 依存の揺れがあるため、比較値の正本としては k6 summary を使う方が安定している。
 - Grafana ダッシュボードは、過去 run の参照期間と現環境で存在するメトリクス名に合わせて調整する必要があることが分かった。
+
+---
+
+## 5. Keploy CI 回帰確認との関係
+
+今回の trace / metrics / logs の整理により、REST / gRPC の内部呼び出し経路と観測の見え方は把握しやすくなった。
+一方で、通常 CI で確認したい対象は trace の形そのものではなく、BFF の外部 API 契約が保たれているかどうかである。
+
+そのため、PoC では以下のように役割を分けるのが適切である。
+
+- `trace-results.md`:
+  - REST / gRPC の内部挙動
+  - span 構造
+  - 観測基盤上での見え方
+    を整理する資料
+
+- Keploy 通常 CI:
+  - REST 基準で整備した HTTP テストケースを使い、gRPC 実装が BFF の外部 API 契約を壊していないかを確認する仕組み
+
+実際に GitHub Actions 上では、`test-set-rest` を基準資産として `rest -> grpc` の順に直列実行する Keploy CI を成立させた。
+これにより、trace は「内部の理解と原因調査」、Keploy は「通常 CI の契約回帰確認」という役割分担を明確にできた。
+
+また、Keploy CI は `--mocking=false` を前提としているため、純粋な replay ではなく backend 実起動込みの統合回帰確認として扱うのが適切である。
+この点でも、trace による内部観測と Keploy による外部契約確認は、補完関係にある。

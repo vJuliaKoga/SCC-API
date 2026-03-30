@@ -165,6 +165,10 @@ Bruno を用いた手動確認では、BFF の `app.call-mode=rest` / `app.call-
 - 観測基盤の統合により、trace / logs / metrics / k6 を横断して確認できる状態になった
 - ただし Collector 経由の k6 メトリクスは一部 run で揺れがあり、比較値の正本としては k6 summary を使う方が妥当である
 - Bruno による手動確認は、性能比較の正本取得ではなく、BFF の外部 API 整合性確認と手動再現性確認に有効だった
+- Keploy については、REST 基準で整備した `test-set-rest` を使い、GitHub Actions 上で `rest -> grpc` の順に直列実行する通常 CI を成立させた
+- これにより、基準ケース自体の健全性確認と、gRPC 実装が BFF の外部 API 契約を壊していないかの回帰確認を、同一 workflow 内で順番に確認できるようになった
+- `--mocking=false` 前提のため pure replay ではないが、そのぶん backend 実起動込みで外部 API 契約の差分を検知できる構成になった
+- PoC としては、性能・可観測性・手動確認に加えて、通常 CI による契約回帰確認の経路も成立したといえる
 
 ---
 
@@ -179,13 +183,15 @@ Bruno を用いた手動確認では、BFF の `app.call-mode=rest` / `app.call-
 - これにより、BFF の外部 API は比較対象として扱いやすくなり、今後の Tusk Drift や回帰確認に進めやすい状態になった
 - 一方で、k6 メトリクスの Collector 経由集計は一部 run で不安定さがあるため、比較の正式値は引き続き k6 summary を採用する
 - 現段階では、内部サービス間通信としての gRPC には前向きな材料が揃いつつあり、今後は外部 API 整合性を保った状態で複数回実行による安定性確認を継続したい
+- さらに、REST 基準の Keploy テストケースを使った通常 CI を GitHub Actions 上で成立させ、`rest` / `grpc` の直列実行まで確認できた
+- これにより、「CI で gRPC が契約を壊したら検知する」ための最小構成は PoC として成立した
+- 今後の運用では、`bff/keploy/test-set-rest` を clean な正本として維持することが、Keploy CI の信頼性を支える前提となる
 
 ---
 
 ## 7. Next Action
 
-- users-read / orders-write をそれぞれ 3 回ずつ実行し、比較表を完成させる
-- 異常系列が混在した run を除外し、再実行分で補完する
-- warm 状態での再計測を行い、外れ値の再現性を確認する
-- エラー系 trace を取得し、REST / gRPC で見え方を比較する
-- Bruno で揃えた外部 API 仕様を前提に、Tusk Drift による record / replay と回帰確認へ進む
+- Keploy 通常 CI で、意図的に gRPC 実装を壊して赤になることを確認する
+- `rest -> grpc` 直列実行時のログ / artifact を見直し、失敗原因を backend 起動不良・BFF 起動不良・Keploy 差分に切り分けやすくする
+- `bff/keploy/test-set-rest` の更新手順を固定し、`kind: Generic` を混入させない運用ルールを明文化する
+- 性能比較の再実行と並行して、Keploy CI を通常変更フローへ組み込めるかを確認する
