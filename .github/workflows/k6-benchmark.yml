@@ -1,0 +1,82 @@
+name: k6 Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_target:
+        description: "比較対象モード"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - rest
+          - grpc
+      scenario_target:
+        description: "比較対象シナリオ"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - users
+          - orders
+      vus:
+        description: "定常時の VU 数"
+        required: true
+        default: "10"
+      ramp_up:
+        description: "立ち上げ時間"
+        required: true
+        default: "30s"
+      steady:
+        description: "定常時間"
+        required: true
+        default: "3m"
+      ramp_down:
+        description: "立ち下げ時間"
+        required: true
+        default: "30s"
+
+jobs:
+  k6-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      RUN_TARGET: ${{ inputs.run_target }}
+      SCENARIO_TARGET: ${{ inputs.scenario_target }}
+      K6_VUS: ${{ inputs.vus }}
+      K6_RAMP_UP: ${{ inputs.ramp_up }}
+      K6_STEADY: ${{ inputs.steady }}
+      K6_RAMP_DOWN: ${{ inputs.ramp_down }}
+      REST_READY_TIMEOUT: "180"
+      GRPC_READY_TIMEOUT: "180"
+      BFF_READY_TIMEOUT: "180"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 benchmark
+        run: bash .github/scripts/run-k6-benchmark.sh
+
+      - name: Upload k6 benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-benchmark-artifacts
+          if-no-files-found: warn
+          path: |
+            artifacts/ci/k6-benchmark
+            observability/logs
