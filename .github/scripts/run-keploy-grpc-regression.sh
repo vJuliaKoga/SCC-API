@@ -10,12 +10,10 @@ OBSERVABILITY_LOG_DIR="$ROOT_DIR/observability/logs"
 GRPC_LOG="$LOG_DIR/grpc-backend.log"
 BFF_LOG="$OBSERVABILITY_LOG_DIR/bff.log"
 KEPLOY_LOG="$LOG_DIR/keploy.log"
-
 KEPLOY_TEST_SET="${KEPLOY_TEST_SET:-test-set-rest}"
 KEPLOY_DELAY="${KEPLOY_DELAY:-80}"
 GRPC_READY_TIMEOUT="${GRPC_READY_TIMEOUT:-180}"
-KEPLOY_BASE_DIR="$BFF_DIR/keploy"
-KEPLOY_TEST_SET_DIR="$KEPLOY_BASE_DIR/$KEPLOY_TEST_SET"
+KEPLOY_TEST_SET_DIR="$BFF_DIR/keploy/$KEPLOY_TEST_SET"
 
 print_log_tail() {
     local label="$1"
@@ -64,29 +62,6 @@ wait_for_port() {
     return 1
 }
 
-prepare_keploy_layout() {
-    local prepared_dir="$LOG_DIR/keploy-layout"
-    local tests_src_dir="$KEPLOY_TEST_SET_DIR/tests"
-
-    rm -rf "$prepared_dir"
-    mkdir -p "$prepared_dir"
-
-    if [[ ! -d "$tests_src_dir" ]]; then
-        echo "Keploy tests ディレクトリが存在しません: $tests_src_dir" >&2
-        exit 1
-    fi
-
-    cp "$KEPLOY_TEST_SET_DIR/mocks.yaml" "$prepared_dir/mocks.yaml"
-
-    # Keploy 3.3.62 が test-set を認識できるよう、tests 配下の YAML を直下へ複製する。
-    find "$tests_src_dir" -maxdepth 1 -type f -name "*.yaml" -print0 | while IFS= read -r -d '' file_path; do
-        cp "$file_path" "$prepared_dir/$(basename "$file_path")"
-    done
-
-    echo "Keploy 実行用に整形した test-set 配置:"
-    find "$prepared_dir" -maxdepth 2 -print | sort
-}
-
 cleanup() {
     local exit_code=$?
 
@@ -125,7 +100,10 @@ chmod +x "$BFF_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
 echo "Keploy 元配置を確認します。"
 find "$KEPLOY_TEST_SET_DIR" -maxdepth 3 -print | sort
 
-prepare_keploy_layout
+if [[ ! -d "$KEPLOY_TEST_SET_DIR" ]]; then
+    echo "Keploy test-set が存在しません: $KEPLOY_TEST_SET_DIR" >&2
+    exit 1
+fi
 
 echo "grpc-backend を起動します。"
 (
@@ -148,7 +126,9 @@ echo "Keploy で ${KEPLOY_TEST_SET} を gRPC 実装に対して実行します�
 (
     cd "$BFF_DIR"
     sudo -E env "PATH=$PATH" keploy test \
-        --path "$LOG_DIR/keploy-layout" \
+        --configPath "$ROOT_DIR/keploy.yml" \
+        --path "$ROOT_DIR" \
+        --test-sets "$KEPLOY_TEST_SET" \
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
         -c "$BFF_COMMAND" \
