@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BFF_DIR="$ROOT_DIR/bff"
 GRPC_BACKEND_DIR="$ROOT_DIR/grpc-backend"
+KEPLOY_PROJECT_ROOT="$BFF_DIR"
 KEPLOY_ASSET_ROOT="$BFF_DIR/keploy"
 LOG_DIR="$ROOT_DIR/artifacts/ci/keploy-grpc-regression"
 GRPC_LOG="$LOG_DIR/grpc-backend.log"
@@ -131,6 +132,7 @@ print_active_test_set_summary() {
     local test_set_dir="$KEPLOY_ASSET_ROOT/${ACTIVE_TEST_SET}"
 
     print_info "使用する test-set: ${ACTIVE_TEST_SET}"
+    print_info "Keploy project root: ${KEPLOY_PROJECT_ROOT}"
     print_info "Keploy asset root: ${KEPLOY_ASSET_ROOT}"
     print_info "testcase 一覧:"
     find "$test_set_dir/tests" -maxdepth 1 -type f -name "*.yaml" | sort
@@ -188,7 +190,7 @@ print_info "Keploy で ${ACTIVE_TEST_SET} を gRPC 実装に対して実行し�
 (
     cd "$BFF_DIR"
     sudo -E env "PATH=$PATH" keploy test \
-        --path "$KEPLOY_ASSET_ROOT" \
+        --path "$KEPLOY_PROJECT_ROOT" \
         --test-sets "$ACTIVE_TEST_SET" \
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
