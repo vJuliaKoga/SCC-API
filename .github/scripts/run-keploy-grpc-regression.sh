@@ -13,6 +13,7 @@ KEPLOY_LOG="$LOG_DIR/keploy.log"
 KEPLOY_TEST_SET="${KEPLOY_TEST_SET:-test-set-rest}"
 KEPLOY_DELAY="${KEPLOY_DELAY:-80}"
 GRPC_READY_TIMEOUT="${GRPC_READY_TIMEOUT:-180}"
+CI_TEST_ASSET_DIR="$LOG_DIR/keploy-test-assets"
 
 print_log_tail() {
     local label="$1"
@@ -86,6 +87,29 @@ cleanup() {
     exit "$exit_code"
 }
 
+prepare_ci_test_assets() {
+    local src_dir="$BFF_DIR/keploy/$KEPLOY_TEST_SET"
+    local dest_dir="$CI_TEST_ASSET_DIR/$KEPLOY_TEST_SET"
+
+    rm -rf "$CI_TEST_ASSET_DIR"
+    mkdir -p "$dest_dir/tests"
+
+    if [[ ! -d "$src_dir/tests" ]]; then
+        echo "Keploy テストケースが存在しません: $src_dir/tests" >&2
+        exit 1
+    fi
+
+    cp "$src_dir/tests"/*.yaml "$dest_dir/tests/"
+
+    cat > "$dest_dir/mocks.yaml" <<'YAML'
+# CI 用に最小化した mocks ファイル。
+# --mocking=false で実 backend 統合テストを行うため、mock 本体は利用しない。
+YAML
+
+    echo "CI 用 Keploy 資産を用意しました。"
+    find "$CI_TEST_ASSET_DIR" -maxdepth 4 -print | sort
+}
+
 trap cleanup EXIT
 
 mkdir -p "$LOG_DIR"
@@ -96,8 +120,7 @@ mkdir -p "$OBSERVABILITY_LOG_DIR"
 
 chmod +x "$BFF_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
 
-echo "Keploy 元配置を確認します。"
-find "$BFF_DIR/keploy/$KEPLOY_TEST_SET" -maxdepth 3 -print | sort
+prepare_ci_test_assets
 
 echo "grpc-backend を起動します。"
 (
@@ -118,10 +141,10 @@ BFF_COMMAND='bash -lc '"'"'
 
 echo "Keploy で ${KEPLOY_TEST_SET} を gRPC 実装に対して実行します。"
 (
-    cd "$BFF_DIR"
+    cd "$ROOT_DIR"
     sudo -E env "PATH=$PATH" keploy test \
-        --path "$BFF_DIR/keploy" \
-        --test-sets "$KEPLOY_TEST_SET/tests" \
+        --path "$CI_TEST_ASSET_DIR" \
+        --test-sets "$KEPLOY_TEST_SET" \
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
         --in-ci \
