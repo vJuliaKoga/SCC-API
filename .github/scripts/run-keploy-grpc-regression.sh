@@ -10,11 +10,11 @@ OBSERVABILITY_LOG_DIR="$ROOT_DIR/observability/logs"
 GRPC_LOG="$LOG_DIR/grpc-backend.log"
 BFF_LOG="$OBSERVABILITY_LOG_DIR/bff.log"
 KEPLOY_LOG="$LOG_DIR/keploy.log"
-KEPLOY_BASE_PATH="$BFF_DIR/keploy"
 
 KEPLOY_TEST_SET="${KEPLOY_TEST_SET:-test-set-rest}"
 KEPLOY_DELAY="${KEPLOY_DELAY:-80}"
 GRPC_READY_TIMEOUT="${GRPC_READY_TIMEOUT:-180}"
+KEPLOY_TEST_SET_PATH="$BFF_DIR/keploy/$KEPLOY_TEST_SET"
 
 print_log_tail() {
     local label="$1"
@@ -98,19 +98,12 @@ mkdir -p "$OBSERVABILITY_LOG_DIR"
 
 chmod +x "$BFF_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
 
-echo "Keploy テスト資産の配置を確認します。"
-echo "KEPLOY_BASE_PATH=$KEPLOY_BASE_PATH"
-echo "KEPLOY_TEST_SET=$KEPLOY_TEST_SET"
+echo "Keploy test-set 配置を確認します。"
+echo "KEPLOY_TEST_SET_PATH=$KEPLOY_TEST_SET_PATH"
+find "$KEPLOY_TEST_SET_PATH" -maxdepth 3 -print | sort
 
-if [[ ! -d "$KEPLOY_BASE_PATH" ]]; then
-    echo "Keploy ディレクトリが存在しません: $KEPLOY_BASE_PATH" >&2
-    exit 1
-fi
-
-find "$KEPLOY_BASE_PATH" -maxdepth 3 -print | sort
-
-if [[ ! -d "$KEPLOY_BASE_PATH/$KEPLOY_TEST_SET" ]]; then
-    echo "Keploy test-set が存在しません: $KEPLOY_BASE_PATH/$KEPLOY_TEST_SET" >&2
+if [[ ! -d "$KEPLOY_TEST_SET_PATH" ]]; then
+    echo "Keploy test-set が存在しません: $KEPLOY_TEST_SET_PATH" >&2
     exit 1
 fi
 
@@ -135,8 +128,7 @@ echo "Keploy で ${KEPLOY_TEST_SET} を gRPC 実装に対して実行します�
 (
     cd "$BFF_DIR"
     sudo -E env "PATH=$PATH" keploy test \
-        --path "$KEPLOY_BASE_PATH" \
-        --test-sets "$KEPLOY_TEST_SET" \
+        --path "$KEPLOY_TEST_SET_PATH" \
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
         -c "$BFF_COMMAND" \
