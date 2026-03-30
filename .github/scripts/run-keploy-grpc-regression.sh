@@ -121,12 +121,10 @@ echo "Keploy で ${KEPLOY_TEST_SET} を gRPC 実装に対して実行します�
     cd "$BFF_DIR"
     sudo -E env "PATH=$PATH" keploy test \
         --path "$BFF_DIR/keploy" \
-        --test-sets "$KEPLOY_TEST_SET" \
+        --test-sets "$KEPLOY_TEST_SET/tests" \
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
         --in-ci \
-        --disable-mapping \
-        --useLocalMock \
         -c "$BFF_COMMAND" \
         2>&1 | tee "$KEPLOY_LOG"
 )
