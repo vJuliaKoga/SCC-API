@@ -6,7 +6,9 @@ on:
       - ".github/workflows/keploy-grpc-regression.yml"
       - ".github/scripts/run-keploy-grpc-regression.sh"
       - "bff/**"
+      - "bff/keploy/**"
       - "grpc-backend/**"
+      - "keploy.yml"
   push:
     branches:
       - main
@@ -14,8 +16,14 @@ on:
       - ".github/workflows/keploy-grpc-regression.yml"
       - ".github/scripts/run-keploy-grpc-regression.sh"
       - "bff/**"
+      - "bff/keploy/**"
       - "grpc-backend/**"
+      - "keploy.yml"
   workflow_dispatch:
+
+concurrency:
+  group: keploy-grpc-regression-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   keploy-grpc-regression:
@@ -26,10 +34,12 @@ jobs:
     env:
       # REST 基準の HTTP テストケースを gRPC 実装に対して再生する。
       KEPLOY_TEST_SET: test-set-rest
-      # Gradle 起動を伴うため、Keploy の待機は少し長めに取る。
+      # BFF は Keploy 経由で Gradle 起動するため、初回は少し長めに待つ。
       KEPLOY_DELAY: "80"
       # gRPC backend の起動待ち上限。
       GRPC_READY_TIMEOUT: "180"
+      # BFF の起動待ち上限。
+      BFF_READY_TIMEOUT: "180"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
