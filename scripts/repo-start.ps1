@@ -1,6 +1,7 @@
 param(
     [string]$Root = ".",
-    [switch]$SkipOpenDesktop
+    [switch]$SkipOpenDesktop,
+    [string]$LogPath = ""
 )
 
 Set-StrictMode -Version Latest
@@ -49,6 +50,118 @@ function Get-GitExecutable {
     throw "git was not found. Install Git for Windows or GitHub Desktop."
 }
 
+function Get-PowerShellExecutable {
+    $command = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    if (-not $command) {
+        $command = Get-Command pwsh -ErrorAction SilentlyContinue
+    }
+
+    if ($command) {
+        return $command.Source
+    }
+
+    $command = Get-Command powershell.exe -ErrorAction SilentlyContinue
+    if (-not $command) {
+        $command = Get-Command powershell -ErrorAction SilentlyContinue
+    }
+
+    if ($command) {
+        return $command.Source
+    }
+
+    throw "PowerShell executable was not found."
+}
+
+function Start-RepoTranscript {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return
+    }
+
+    $directory = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory | Out-Null
+    }
+
+    Start-Transcript -LiteralPath $Path -Append | Out-Null
+    $script:TranscriptStarted = $true
+}
+
+function Stop-RepoTranscript {
+    if (-not $script:TranscriptStarted) {
+        return
+    }
+
+    try {
+        Stop-Transcript | Out-Null
+    }
+    catch {
+    }
+
+    $script:TranscriptStarted = $false
+}
+
+function Read-TextFilePreservingEncoding {
+    param(
+        [string]$Path
+    )
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $encoding = $null
+    $preambleLength = 0
+    $text = $null
+
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        $encoding = [System.Text.UTF8Encoding]::new($true)
+        $preambleLength = 3
+    }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        $encoding = [System.Text.UnicodeEncoding]::new($false, $true)
+        $preambleLength = 2
+    }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
+        $encoding = [System.Text.UnicodeEncoding]::new($true, $true)
+        $preambleLength = 2
+    }
+    elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE -and $bytes[2] -eq 0x00 -and $bytes[3] -eq 0x00) {
+        $encoding = [System.Text.UTF32Encoding]::new($false, $true)
+        $preambleLength = 4
+    }
+    elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0x00 -and $bytes[1] -eq 0x00 -and $bytes[2] -eq 0xFE -and $bytes[3] -eq 0xFF) {
+        $encoding = [System.Text.UTF32Encoding]::new($true, $true)
+        $preambleLength = 4
+    }
+    else {
+        $utf8NoBomStrict = [System.Text.UTF8Encoding]::new($false, $true)
+
+        try {
+            $text = $utf8NoBomStrict.GetString($bytes)
+            $encoding = [System.Text.UTF8Encoding]::new($false)
+        }
+        catch {
+            $encoding = [System.Text.Encoding]::Default
+            $text = $encoding.GetString($bytes)
+        }
+    }
+
+    if ($null -eq $text) {
+        if ($bytes.Length -eq 0) {
+            $text = ""
+        }
+        else {
+            $text = $encoding.GetString($bytes, $preambleLength, $bytes.Length - $preambleLength)
+        }
+    }
+
+    return [pscustomobject]@{
+        Text = $text
+        Encoding = $encoding
+    }
+}
+
 function Get-RepoRoot {
     param(
         [string]$BasePath
@@ -86,17 +199,19 @@ function Add-GitIgnoreLineIfMissing {
         [string]$Line
     )
 
-    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
     $existingText = ""
+    $encoding = [System.Text.UTF8Encoding]::new($false)
 
     if (Test-Path -LiteralPath $GitIgnorePath) {
-        $existingText = [string](Get-Content -LiteralPath $GitIgnorePath -Raw -ErrorAction SilentlyContinue)
+        $gitIgnoreContent = Read-TextFilePreservingEncoding -Path $GitIgnorePath
+        $existingText = [string]$gitIgnoreContent.Text
+        $encoding = $gitIgnoreContent.Encoding
         if ($null -eq $existingText) {
             $existingText = ""
         }
     }
     else {
-        [System.IO.File]::WriteAllText($GitIgnorePath, "", $utf8NoBom)
+        [System.IO.File]::WriteAllText($GitIgnorePath, "", $encoding)
     }
 
     if ([string]::IsNullOrEmpty($existingText)) {
@@ -115,7 +230,7 @@ function Add-GitIgnoreLineIfMissing {
         [System.IO.File]::AppendAllText(
             $GitIgnorePath,
             "$prefix$Line$([System.Environment]::NewLine)",
-            $utf8NoBom
+            $encoding
         )
         Write-Host "ADDED .gitignore: $Line"
     }
@@ -257,9 +372,14 @@ function Get-RelativeRepoPath {
     return [System.Uri]::UnescapeDataString($relativeUri.ToString()).Replace("\", "/")
 }
 
+$script:TranscriptStarted = $false
+$exitCode = 0
+
 try {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    Start-RepoTranscript -Path $LogPath
     $script:GitExe = Get-GitExecutable
+    $script:PowerShellExe = Get-PowerShellExecutable
     $repoRoot = Get-RepoRoot -BasePath $Root
     $redactScriptPath = Join-Path $scriptDir "redact-secrets.ps1"
     $gitIgnorePath = Join-Path $repoRoot ".gitignore"
@@ -270,9 +390,13 @@ try {
 
     Write-Host "Target repository: $repoRoot"
     Write-Host "Using git: $script:GitExe"
+    Write-Host "Using PowerShell: $script:PowerShellExe"
 
     # 1. Redact common secret patterns across the repository.
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $redactScriptPath -Root $repoRoot
+    & $script:PowerShellExe -NoProfile -ExecutionPolicy Bypass -File $redactScriptPath -Root $repoRoot
+    if ($LASTEXITCODE -eq 2) {
+        throw ([System.OperationCanceledException]::new("Secret redaction was canceled by user."))
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "Secret redaction failed."
     }
@@ -322,7 +446,15 @@ try {
         Open-GitHubDesktop -RepoRoot $repoRoot
     }
 }
+catch [System.OperationCanceledException] {
+    $exitCode = 2
+}
 catch {
     Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red
-    exit 1
+    $exitCode = 1
 }
+finally {
+    Stop-RepoTranscript
+}
+
+exit $exitCode

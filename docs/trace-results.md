@@ -79,10 +79,18 @@
 ```promql
 sum by (check, condition, run_id, api, call_mode, scenario) (
     last_over_time(
-        k6_checks_total[1h]
+        k6_checks_total[30d]
     )
 )
 ```
+
+### 2-5. Grafana ダッシュボード見直し結果
+
+- `k6 実行結果 Overview` は、過去 run を見返す用途では `last_over_time(k6_checks_total[1h])` だと時間窓が短く、数日前の実行結果を表示できなかった
+- raw checks パネルは `last_over_time(k6_checks_total[30d])` に見直すことで、過去 run を継続参照できることを確認した
+- `Spring Services Overview` は、`http_server_requests_seconds_count` を基準にした request rate / request count / error count の表示は成立した
+- 一方で、`*_bucket` 系メトリクスおよび `otelcol_exporter_sent_metric_points` は現環境では確認できず、p95 latency パネルおよび Collector sent metric points パネルは成立しなかった
+- そのため、Spring Services Overview は現時点で存在確認できたメトリクスに合わせて簡素化し、空パネルを除去した構成を採用する
 
 ---
 
@@ -103,6 +111,7 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 - k6 を OpenTelemetry Collector 経由で統合したことで、アプリケーション観測と負荷試験結果を同一基盤上で参照できる状態になった点は有益である。
 - 一方で、k6 メトリクスは run により `condition` 系列やラベル整合性に揺れがあり、Grafana 上で error rate や check success rate を単純算出すると、k6 summary と一致しないケースがあった。
 - このため、PoC 段階では「Grafana は観測確認用途」「比較の正式値は k6 summary」という役割分担にするのが妥当である。
+- Grafana ダッシュボードは、存在するメトリクス名に合わせて見直すことで安定運用しやすくなった。
 - 今後は `POST /api/orders` の trace 取得と、エラー系 trace の比較を追加すると、可観測性比較の解像度をさらに上げられる。
 
 ---
@@ -115,3 +124,4 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 - ただし gRPC には 1717.47ms の外れ値 1 件があり、平均値だけで評価すると実態を見誤るため、継続比較では中央値ベースの確認を優先したい。
 - 観測基盤統合により、trace / metrics / logs / k6 を同一基盤で確認できる状態は整った。
 - 一方で、Collector 経由の k6 rate 系集計には run 依存の揺れがあるため、比較値の正本としては k6 summary を使う方が安定している。
+- Grafana ダッシュボードは、過去 run の参照期間と現環境で存在するメトリクス名に合わせて調整する必要があることが分かった。

@@ -129,13 +129,15 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 - REST:
   - POST /api/orders の k6 スクリプト修正により、検証用シナリオを安定実行できるようになった
   - ただし比較に使う run 管理は厳密に行う必要がある
+
 - gRPC:
   - gRPC 側も同一 runbook で比較可能
   - Collector 経由の可視化は補助用途として扱うのが安全
+
 - 所感:
   - run_id の再利用は避け、毎回ユニークな値を付与する運用が必須
   - 比較値は k6 summary、Grafana は raw checks / trace / logs 確認用という役割分担にすると運用が安定する
-  - PoC 段階では「完全なダッシュボード化」よりも「再現可能な実行手順と比較ルールの固定化」の優先度が高い
+  - PJ 段階では「完全なダッシュボード化」よりも「再現可能な実行手順と比較ルールの固定化」の優先度が高い
 
 ## 実施履歴
 
@@ -147,9 +149,11 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
   - k6/orders-create.js を修正し、POST /api/orders の正常系チェックを通過させた
   - Grafana 上で k6 の rate 系集計を検証し、run によって値が不安定になることを確認した
   - raw checks 表示に絞ったシンプルな確認パネルへ切り替えた
+
 - 対象 API:
   - GET /api/users/{id}
   - POST /api/orders
+
 - 使用ツール:
   - OpenTelemetry Java Agent
   - OpenTelemetry Collector
@@ -158,10 +162,12 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
   - Tempo
   - Loki
   - k6
+
 - 結果概要:
   - REST / gRPC ともに API 呼び出し、trace、logs、metrics の可視化を確認
   - POST /api/orders は k6 summary 上で正常系 100% を確認
   - Grafana 上では raw checks は安定して確認可能
+
 - 気づき:
   - Collector 経由の k6 メトリクスは、run により condition 系列やラベル整合性に揺れがある
   - 比較用の正式値は k6 summary を採用し、Grafana は観測確認用途に寄せる方が実務上安全
@@ -183,6 +189,6 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 
 ### 今回の対象システムに対する暫定見解
 
-- 現時点の PoC 範囲では、性能面の差は API 特性によって分かれる
+- 現時点の PJ 範囲では、性能面の差は API 特性によって分かれる
 - 可観測性の観点では、gRPC は span 名の分かりやすさでやや優位
 - ただし gRPC には外れ値があり、最終判断には複数回実行とエラー系検証が必要

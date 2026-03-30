@@ -108,6 +108,166 @@ function Get-FilesToRedact {
     return $files
 }
 
+function Read-TextFilePreservingEncoding {
+    param(
+        [string]$Path
+    )
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $encoding = $null
+    $preambleLength = 0
+    $text = $null
+
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        $encoding = [System.Text.UTF8Encoding]::new($true)
+        $preambleLength = 3
+    }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        $encoding = [System.Text.UnicodeEncoding]::new($false, $true)
+        $preambleLength = 2
+    }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
+        $encoding = [System.Text.UnicodeEncoding]::new($true, $true)
+        $preambleLength = 2
+    }
+    elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE -and $bytes[2] -eq 0x00 -and $bytes[3] -eq 0x00) {
+        $encoding = [System.Text.UTF32Encoding]::new($false, $true)
+        $preambleLength = 4
+    }
+    elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0x00 -and $bytes[1] -eq 0x00 -and $bytes[2] -eq 0xFE -and $bytes[3] -eq 0xFF) {
+        $encoding = [System.Text.UTF32Encoding]::new($true, $true)
+        $preambleLength = 4
+    }
+    else {
+        $utf8NoBomStrict = [System.Text.UTF8Encoding]::new($false, $true)
+
+        try {
+            $text = $utf8NoBomStrict.GetString($bytes)
+            $encoding = [System.Text.UTF8Encoding]::new($false)
+        }
+        catch {
+            $encoding = [System.Text.Encoding]::Default
+            $text = $encoding.GetString($bytes)
+        }
+    }
+
+    if ($null -eq $text) {
+        if ($bytes.Length -eq 0) {
+            $text = ""
+        }
+        else {
+            $text = $encoding.GetString($bytes, $preambleLength, $bytes.Length - $preambleLength)
+        }
+    }
+
+    return [pscustomobject]@{
+        Text = $text
+        Encoding = $encoding
+    }
+}
+
+function Write-TextFilePreservingEncoding {
+    param(
+        [string]$Path,
+        [string]$Text,
+        [System.Text.Encoding]$Encoding
+    )
+
+    [System.IO.File]::WriteAllText($Path, $Text, $Encoding)
+}
+
+function Get-RelativeRepoPath {
+    param(
+        [string]$RepoRoot,
+        [string]$FullPath
+    )
+
+    $repoBase = $RepoRoot
+    if (-not $repoBase.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+        $repoBase += [System.IO.Path]::DirectorySeparatorChar
+    }
+
+    $repoUri = New-Object System.Uri($repoBase)
+    $itemUri = New-Object System.Uri($FullPath)
+    $relativeUri = $repoUri.MakeRelativeUri($itemUri)
+
+    return [System.Uri]::UnescapeDataString($relativeUri.ToString()).Replace("\", "/")
+}
+
+function Apply-RegexReplacement {
+    param(
+        [string]$Text,
+        [regex]$Regex,
+        [string]$Replacement
+    )
+
+    $matchCount = $Regex.Matches($Text).Count
+    if ($matchCount -eq 0) {
+        return [pscustomobject]@{
+            Text = $Text
+            MatchCount = 0
+        }
+    }
+
+    return [pscustomobject]@{
+        Text = $Regex.Replace($Text, $Replacement)
+        MatchCount = $matchCount
+    }
+}
+
+function Get-RedactionPreview {
+    param(
+        [string]$Text,
+        [object[]]$Rules
+    )
+
+    $currentText = $Text
+    $totalMatches = 0
+
+    foreach ($rule in $Rules) {
+        $result = Apply-RegexReplacement -Text $currentText -Regex $rule.Regex -Replacement $rule.Replacement
+        $currentText = $result.Text
+        $totalMatches += $result.MatchCount
+    }
+
+    return [pscustomobject]@{
+        Text = $currentText
+        MatchCount = $totalMatches
+    }
+}
+
+function Read-RedactionChoice {
+    param(
+        [string]$RelativePath,
+        [int]$Index,
+        [int]$Total,
+        [int]$MatchCount
+    )
+
+    while ($true) {
+        $plural = if ($MatchCount -eq 1) { "" } else { "es" }
+        $choice = Read-Host ("MASK [{0}/{1}] {2} ({3} match{4})? [Y]es/[N]o/[A]ll/[Q]uit" -f $Index, $Total, $RelativePath, $MatchCount, $plural)
+        if ($null -eq $choice) {
+            $choice = ""
+        }
+        $normalized = $choice.Trim().ToUpperInvariant()
+
+        switch ($normalized) {
+            "Y" { return "Y" }
+            "YES" { return "Y" }
+            "N" { return "N" }
+            "NO" { return "N" }
+            "A" { return "A" }
+            "ALL" { return "A" }
+            "Q" { return "Q" }
+            "QUIT" { return "Q" }
+            default {
+                Write-Host "Please enter Y, N, A, or Q."
+            }
+        }
+    }
+}
+
 try {
     $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
     $script:GitExe = Get-GitExecutable
@@ -175,37 +335,23 @@ try {
         ".mypy_cache"
     )
 
-    # Common secret patterns.
-    $rxOpenAi = [regex]'\bsk-[A-Za-z0-9]{10,}\b'
+    # Common secret value patterns only.
+    # Avoid key-name based masking so code like `apiKey` / `loadApiKey` is never rewritten.
+    $rxSkLike = [regex]'\bsk-[A-Za-z0-9][A-Za-z0-9_-]{10,}\b'
+    $rxGoogleApi = [regex]'\bAIza[0-9A-Za-z_-]{20,}\b'
     $rxAwsId = [regex]'\b(?:AKIA|ASIA)[0-9A-Z]{16}\b'
     $rxGitHub1 = [regex]'\bgh[pousr]_[A-Za-z0-9]{20,}\b'
     $rxGitHub2 = [regex]'\bgithub_pat_[A-Za-z0-9_]{20,}\b'
     $rxSlack = [regex]'\bxox[baprs]-[A-Za-z0-9-]{10,}\b'
     $rxBearer = [regex]'(?i)\bbearer\s+[A-Za-z0-9._~+\/=-]{10,}\b'
-
-    # Common environment/config key names.
-    $keyNames = @(
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "AZURE_OPENAI_API_KEY",
-        "GOOGLE_API_KEY",
-        "GITHUB_TOKEN",
-        "GH_TOKEN",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN",
-        "Authorization",
-        "AUTHORIZATION"
-    )
-
-    $keyAlt = ($keyNames | ForEach-Object { [regex]::Escape($_) }) -join "|"
-
-    $rxKeyValueLine = New-Object System.Text.RegularExpressions.Regex(
-        "(?im)^(\s*(?:$keyAlt)\s*[:=]\s*)(.+?)(\s*(?:#.*)?)$"
-    )
-
-    $rxCommonJsonYaml = New-Object System.Text.RegularExpressions.Regex(
-        '(?im)((?<![A-Za-z0-9_$.-])"?(?:api[_-]?key|access[_-]?key|secret|token|authorization|bearer)"?\s*[:=]\s*"?)([^"\r\n#]+)("?)'
+    $redactionRules = @(
+        [pscustomobject]@{ Regex = $rxSkLike; Replacement = "APIKEY" },
+        [pscustomobject]@{ Regex = $rxGoogleApi; Replacement = "APIKEY" },
+        [pscustomobject]@{ Regex = $rxAwsId; Replacement = "APIKEY" },
+        [pscustomobject]@{ Regex = $rxGitHub1; Replacement = "APIKEY" },
+        [pscustomobject]@{ Regex = $rxGitHub2; Replacement = "APIKEY" },
+        [pscustomobject]@{ Regex = $rxSlack; Replacement = "APIKEY" },
+        [pscustomobject]@{ Regex = $rxBearer; Replacement = "Bearer APIKEY" }
     )
 
     Write-Host "Redacting secrets in: $repoRoot"
@@ -216,11 +362,13 @@ try {
         $launcherCmdPath
     )
 
-    $changed = 0
+    $candidates = New-Object System.Collections.Generic.List[object]
 
     foreach ($file in $files) {
         try {
-            $text = [string](Get-Content -LiteralPath $file.FullName -Raw -ErrorAction Stop)
+            $fileContent = Read-TextFilePreservingEncoding -Path $file.FullName
+            $text = [string]$fileContent.Text
+            $encoding = $fileContent.Encoding
         }
         catch {
             continue
@@ -233,33 +381,83 @@ try {
         $original = $text
 
         try {
-            $text = $rxOpenAi.Replace($text, "APIKEY")
-            $text = $rxAwsId.Replace($text, "APIKEY")
-            $text = $rxGitHub1.Replace($text, "APIKEY")
-            $text = $rxGitHub2.Replace($text, "APIKEY")
-            $text = $rxSlack.Replace($text, "APIKEY")
-            $text = $rxBearer.Replace($text, "Bearer APIKEY")
-            $text = $rxKeyValueLine.Replace($text, '${1}APIKEY${3}')
-            $text = $rxCommonJsonYaml.Replace($text, '${1}APIKEY${3}')
+            $preview = Get-RedactionPreview -Text $text -Rules $redactionRules
+            $text = $preview.Text
         }
         catch {
             throw "Redaction failed for $($file.FullName): $($_.Exception.Message)"
         }
 
         if ($text -ne $original) {
-            # Rewrite only when the content actually changed.
-            [System.IO.File]::WriteAllText(
-                $file.FullName,
-                $text,
-                [System.Text.UTF8Encoding]::new($false)
-            )
-            Write-Host "REDACTED: $($file.FullName)"
-            $changed++
+            $candidates.Add([pscustomobject]@{
+                FullPath = $file.FullName
+                RelativePath = Get-RelativeRepoPath -RepoRoot $repoRoot -FullPath $file.FullName
+                RedactedText = $text
+                Encoding = $encoding
+                MatchCount = $preview.MatchCount
+            })
         }
     }
 
-    Write-Host "Done: redacted $changed file(s)."
+    if ($candidates.Count -eq 0) {
+        Write-Host "No secrets detected."
+        Write-Host "Done: redacted 0 file(s)."
+        exit 0
+    }
+
+    Write-Host ""
+    Write-Host ("Detected secret-like values in {0} file(s):" -f $candidates.Count)
+    for ($i = 0; $i -lt $candidates.Count; $i++) {
+        $candidate = $candidates[$i]
+        $plural = if ($candidate.MatchCount -eq 1) { "" } else { "es" }
+        Write-Host ("  [{0}] {1} ({2} match{3})" -f ($i + 1), $candidate.RelativePath, $candidate.MatchCount, $plural)
+    }
+    Write-Host "Choices: [Y]es = mask this file / [N]o = skip / [A]ll = mask this and remaining files / [Q]uit = stop"
+    Write-Host ""
+
+    $changed = 0
+    $skipped = 0
+    $applyAll = $false
+
+    for ($i = 0; $i -lt $candidates.Count; $i++) {
+        $candidate = $candidates[$i]
+        $shouldApply = $false
+
+        if ($applyAll) {
+            $shouldApply = $true
+        }
+        else {
+            $choice = Read-RedactionChoice -RelativePath $candidate.RelativePath -Index ($i + 1) -Total $candidates.Count -MatchCount $candidate.MatchCount
+            switch ($choice) {
+                "Y" { $shouldApply = $true }
+                "N" { $shouldApply = $false }
+                "A" {
+                    $applyAll = $true
+                    $shouldApply = $true
+                }
+                "Q" {
+                    throw ([System.OperationCanceledException]::new("Secret redaction was canceled by user."))
+                }
+            }
+        }
+
+        if ($shouldApply) {
+            Write-TextFilePreservingEncoding -Path $candidate.FullPath -Text $candidate.RedactedText -Encoding $candidate.Encoding
+            Write-Host ("REDACTED: {0}" -f $candidate.RelativePath)
+            $changed++
+        }
+        else {
+            Write-Host ("SKIPPED: {0}" -f $candidate.RelativePath)
+            $skipped++
+        }
+    }
+
+    Write-Host ("Done: redacted {0} file(s), skipped {1} file(s)." -f $changed, $skipped)
     exit 0
+}
+catch [System.OperationCanceledException] {
+    Write-Host ("CANCELED: " + $_.Exception.Message) -ForegroundColor Yellow
+    exit 2
 }
 catch {
     Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red

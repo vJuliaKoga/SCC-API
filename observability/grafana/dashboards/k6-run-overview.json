@@ -1,152 +1,156 @@
 {
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
-  "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": null,
-  "links": [],
-  "liveNow": false,
-  "panels": [
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 18,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "enablePagination": true,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": false,
-            "displayName": "check"
-          },
-          {
-            "desc": false,
-            "displayName": "condition"
-          },
-          {
-            "desc": false,
-            "displayName": "run_id"
-          }
-        ]
-      },
-      "pluginVersion": "12.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (check, condition, run_id, api, call_mode, scenario) (\n    last_over_time(\n        k6_checks_total[1h]\n    )\n)",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "{{check}} {{condition}} {{run_id}} {{api}} {{call_mode}} {{scenario}}",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "k6 checks raw",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "indexByName": {
-              "Value": 0,
-              "api": 4,
-              "call_mode": 5,
-              "check": 1,
-              "condition": 2,
-              "run_id": 3,
-              "scenario": 6
-            },
-            "renameByName": {
-              "Value": "value"
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
             }
-          }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "custom": {
+                        "align": "auto",
+                        "cellOptions": {
+                            "type": "auto"
+                        },
+                        "inspect": false
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 16,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "cellHeight": "sm",
+                "footer": {
+                    "countRows": false,
+                    "enablePagination": true,
+                    "fields": "",
+                    "reducer": [
+                        "sum"
+                    ],
+                    "show": false
+                },
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": false,
+                        "displayName": "run_id"
+                    }
+                ]
+            },
+            "pluginVersion": "11.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "sum by (check, condition, run_id, api, call_mode, scenario) (\n    last_over_time(\n        k6_checks_total[30d]\n    )\n)",
+                    "format": "table",
+                    "instant": true,
+                    "legendFormat": "{{check}} {{condition}} {{run_id}} {{api}} {{call_mode}} {{scenario}}",
+                    "range": false,
+                    "refId": "A"
+                }
+            ],
+            "title": "k6 checks raw",
+            "transformations": [
+                {
+                    "id": "labelsToFields",
+                    "options": {
+                        "mode": "columns"
+                    }
+                },
+                {
+                    "id": "organize",
+                    "options": {
+                        "excludeByName": {
+                            "Time": true,
+                            "__name__": true,
+                            "job": true
+                        },
+                        "indexByName": {
+                            "Value": 0,
+                            "check": 1,
+                            "condition": 2,
+                            "run_id": 3,
+                            "api": 4,
+                            "call_mode": 5,
+                            "scenario": 6
+                        },
+                        "renameByName": {
+                            "Value": "value"
+                        }
+                    }
+                }
+            ],
+            "type": "table"
         }
-      ],
-      "type": "table"
-    }
-  ],
-  "preload": false,
-  "refresh": "10s",
-  "schemaVersion": 41,
-  "tags": [
-    "k6",
-    "observability",
-    "poc"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-3d",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "",
-  "title": "k6 実行結果 Overview",
-  "uid": "k6-run-overview",
-  "version": 1,
-  "weekStart": ""
+    ],
+    "refresh": "",
+    "schemaVersion": 39,
+    "style": "dark",
+    "tags": [
+        "k6",
+        "otel",
+        "poc"
+    ],
+    "templating": {
+        "list": []
+    },
+    "time": {
+        "from": "now-30d",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "k6 実行結果 Overview",
+    "uid": "k6-run-overview",
+    "version": 1,
+    "weekStart": ""
 }
