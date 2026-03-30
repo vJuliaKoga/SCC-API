@@ -14,7 +14,8 @@ KEPLOY_LOG="$LOG_DIR/keploy.log"
 KEPLOY_TEST_SET="${KEPLOY_TEST_SET:-test-set-rest}"
 KEPLOY_DELAY="${KEPLOY_DELAY:-80}"
 GRPC_READY_TIMEOUT="${GRPC_READY_TIMEOUT:-180}"
-KEPLOY_TEST_SET_PATH="$BFF_DIR/keploy/$KEPLOY_TEST_SET"
+KEPLOY_BASE_DIR="$BFF_DIR/keploy"
+KEPLOY_TEST_SET_DIR="$KEPLOY_BASE_DIR/$KEPLOY_TEST_SET"
 
 print_log_tail() {
     local label="$1"
@@ -63,6 +64,29 @@ wait_for_port() {
     return 1
 }
 
+prepare_keploy_layout() {
+    local prepared_dir="$LOG_DIR/keploy-layout"
+    local tests_src_dir="$KEPLOY_TEST_SET_DIR/tests"
+
+    rm -rf "$prepared_dir"
+    mkdir -p "$prepared_dir"
+
+    if [[ ! -d "$tests_src_dir" ]]; then
+        echo "Keploy tests ディレクトリが存在しません: $tests_src_dir" >&2
+        exit 1
+    fi
+
+    cp "$KEPLOY_TEST_SET_DIR/mocks.yaml" "$prepared_dir/mocks.yaml"
+
+    # Keploy 3.3.62 が test-set を認識できるよう、tests 配下の YAML を直下へ複製する。
+    find "$tests_src_dir" -maxdepth 1 -type f -name "*.yaml" -print0 | while IFS= read -r -d '' file_path; do
+        cp "$file_path" "$prepared_dir/$(basename "$file_path")"
+    done
+
+    echo "Keploy 実行用に整形した test-set 配置:"
+    find "$prepared_dir" -maxdepth 2 -print | sort
+}
+
 cleanup() {
     local exit_code=$?
 
@@ -98,14 +122,10 @@ mkdir -p "$OBSERVABILITY_LOG_DIR"
 
 chmod +x "$BFF_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
 
-echo "Keploy test-set 配置を確認します。"
-echo "KEPLOY_TEST_SET_PATH=$KEPLOY_TEST_SET_PATH"
-find "$KEPLOY_TEST_SET_PATH" -maxdepth 3 -print | sort
+echo "Keploy 元配置を確認します。"
+find "$KEPLOY_TEST_SET_DIR" -maxdepth 3 -print | sort
 
-if [[ ! -d "$KEPLOY_TEST_SET_PATH" ]]; then
-    echo "Keploy test-set が存在しません: $KEPLOY_TEST_SET_PATH" >&2
-    exit 1
-fi
+prepare_keploy_layout
 
 echo "grpc-backend を起動します。"
 (
@@ -128,7 +148,7 @@ echo "Keploy で ${KEPLOY_TEST_SET} を gRPC 実装に対して実行します�
 (
     cd "$BFF_DIR"
     sudo -E env "PATH=$PATH" keploy test \
-        --path "$KEPLOY_TEST_SET_PATH" \
+        --path "$LOG_DIR/keploy-layout" \
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
         -c "$BFF_COMMAND" \
