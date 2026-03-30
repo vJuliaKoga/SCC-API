@@ -99,15 +99,18 @@ mkdir -p "$OBSERVABILITY_LOG_DIR"
 chmod +x "$BFF_DIR/gradlew" "$GRPC_BACKEND_DIR/gradlew"
 
 echo "Keploy テスト資産の配置を確認します。"
+echo "KEPLOY_BASE_PATH=$KEPLOY_BASE_PATH"
+echo "KEPLOY_TEST_SET=$KEPLOY_TEST_SET"
+
 if [[ ! -d "$KEPLOY_BASE_PATH" ]]; then
     echo "Keploy ディレクトリが存在しません: $KEPLOY_BASE_PATH" >&2
     exit 1
 fi
 
+find "$KEPLOY_BASE_PATH" -maxdepth 3 -print | sort
+
 if [[ ! -d "$KEPLOY_BASE_PATH/$KEPLOY_TEST_SET" ]]; then
     echo "Keploy test-set が存在しません: $KEPLOY_BASE_PATH/$KEPLOY_TEST_SET" >&2
-    echo "現在の keploy 配下:" >&2
-    find "$KEPLOY_BASE_PATH" -maxdepth 2 -type d | sort >&2
     exit 1
 fi
 
