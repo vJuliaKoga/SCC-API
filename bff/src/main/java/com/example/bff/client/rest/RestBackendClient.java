@@ -2,9 +2,7 @@ package com.example.bff.client.rest;
 
 import com.example.bff.model.CreateOrderRequest;
 import com.example.bff.model.CreateOrderResponse;
-import com.example.bff.model.ErrorResponse;
 import com.example.bff.model.UserResponse;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -26,11 +24,6 @@ public class RestBackendClient {
             return restClient.get()
                 .uri("/api/users/{id}", userId)
                 .retrieve()
-                .onStatus(
-                    HttpStatusCode::isError,
-                    (request, response) -> {
-                    }
-                )
                 .body(UserResponse.class);
         } catch (RestClientResponseException ex) {
             throw convertRestError(ex);
@@ -43,11 +36,6 @@ public class RestBackendClient {
                 .uri("/api/orders")
                 .body(request)
                 .retrieve()
-                .onStatus(
-                    HttpStatusCode::isError,
-                    (clientRequest, clientResponse) -> {
-                    }
-                )
                 .body(CreateOrderResponse.class);
         } catch (RestClientResponseException ex) {
             throw convertRestError(ex);

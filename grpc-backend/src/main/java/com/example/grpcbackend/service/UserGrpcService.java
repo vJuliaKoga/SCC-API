@@ -38,7 +38,7 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
 
         GetUserResponse response = GetUserResponse.newBuilder()
                 .setUserId("1")
-                .setName("Taro Yamada")
+                .setName("Sam Ple")
                 .setStatus(UserStatus.USER_STATUS_ACTIVE)
                 .build();
 

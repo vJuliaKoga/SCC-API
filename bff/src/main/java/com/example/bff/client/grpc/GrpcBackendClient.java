@@ -47,6 +47,8 @@ public class GrpcBackendClient {
     }
 
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
+        validateCreateOrderRequest(request);
+
         try {
             com.example.bff.proto.CreateOrderResponse response = orderServiceBlockingStub.createOrder(
                 com.example.bff.proto.CreateOrderRequest.newBuilder()
@@ -87,5 +89,23 @@ public class GrpcBackendClient {
         }
 
         return new IllegalStateException("gRPC backend 呼び出しに失敗しました。");
+    }
+
+    private void validateCreateOrderRequest(CreateOrderRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("リクエストは必須です。");
+        }
+
+        if (request.userId() == null || request.userId().isBlank()) {
+            throw new IllegalArgumentException("ユーザーIDは必須です。");
+        }
+
+        if (request.itemCode() == null || request.itemCode().isBlank()) {
+            throw new IllegalArgumentException("商品コードは必須です。");
+        }
+
+        if (request.quantity() < 1) {
+            throw new IllegalArgumentException("数量は1以上で指定してください。");
+        }
     }
 }
