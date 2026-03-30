@@ -116,20 +116,18 @@ BFF_COMMAND='bash -lc '"'"'
     ./gradlew --no-daemon bootRun --args="--app.call-mode=grpc"
 '"'"''
 
-echo "Keploy CLI 引数を確認します。"
-keploy test --help | tee -a "$KEPLOY_LOG"
-
 echo "Keploy で ${KEPLOY_TEST_SET} を gRPC 実装に対して実行します。"
 (
-    cd "$ROOT_DIR"
+    cd "$BFF_DIR"
     sudo -E env "PATH=$PATH" keploy test \
-        --config-path "$ROOT_DIR" \
-        --path "$BFF_DIR/keploy" \
+        --path keploy \
+        --config-path "$BFF_DIR" \
         --test-sets "$KEPLOY_TEST_SET" \
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
+        --in-ci \
         -c "$BFF_COMMAND" \
-        2>&1 | tee -a "$KEPLOY_LOG"
+        2>&1 | tee "$KEPLOY_LOG"
 )
 
 echo "Keploy 回帰確認が完了しました。"
