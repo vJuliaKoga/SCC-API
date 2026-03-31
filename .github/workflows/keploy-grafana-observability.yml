@@ -82,7 +82,7 @@ jobs:
           BFF_CALL_MODE: rest
           RUN_LABEL: rest
           KEPLOY_OBSERVABILITY_ENABLED: "true"
-        run: bash .github/scripts/run-keploy-grpc-regression.sh
+        run: bash .github/scripts/run-keploy-regression.sh
 
       - name: Run Keploy observability in grpc mode
         if: env.KEPLOY_RUN_TARGET == 'both' || env.KEPLOY_RUN_TARGET == 'grpc'
@@ -90,7 +90,7 @@ jobs:
           BFF_CALL_MODE: grpc
           RUN_LABEL: grpc
           KEPLOY_OBSERVABILITY_ENABLED: "true"
-        run: bash .github/scripts/run-keploy-grpc-regression.sh
+        run: bash .github/scripts/run-keploy-regression.sh
 
       - name: Collect observability snapshots
         if: always()
