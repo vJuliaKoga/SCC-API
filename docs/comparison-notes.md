@@ -462,7 +462,7 @@ BFF は外部 API を共通化し、Backend 通信方式のみを比較対象と
 
 - 追加実施内容:
   - Keploy CI の `test-set-rest` を通常 CI 用 asset として見直し、`mocks.yaml` から `kind: Generic` を除去した
-  - `.github/scripts/run-keploy-grpc-regression.sh` を修正し、Keploy の `--path` を project root 前提に合わせた
+  - `.github/scripts/run-keploy-regression.sh` を修正し、Keploy の `--path` を project root 前提に合わせた
   - script 側で `test-set-rest` の layout 確認と `Generic` 混入チェックを行い、汚れた asset を通常 CI で使わないようにした
   - GitHub Actions workflow を拡張し、`workflow_dispatch` では `both` / `rest` / `grpc` を選択可能にした
   - 通常 CI では `rest -> grpc` の順に直列実行する構成へ整理した

@@ -1,0 +1,126 @@
+name: Keploy Observability
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_target:
+        description: "実行対象"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - grpc
+          - rest
+
+jobs:
+  keploy-grafana-observability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      KEPLOY_TEST_SET: test-set-rest
+      KEPLOY_RUN_TARGET: ${{ inputs.run_target }}
+      KEPLOY_DELAY: "80"
+      REST_READY_TIMEOUT: "180"
+      GRPC_READY_TIMEOUT: "180"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start observability stack
+        run: docker compose -f observability/docker-compose.yml up -d
+
+      - name: Wait for observability stack
+        run: |
+          bash -lc '
+            set -euo pipefail
+
+            wait_for_http() {
+                local label="$1"
+                local url="$2"
+                local timeout_seconds="$3"
+                local start_time="$SECONDS"
+
+                while (( SECONDS - start_time < timeout_seconds )); do
+                    if curl --fail --silent --show-error "$url" > /dev/null; then
+                        echo "[observability] ${label} が起動しました: ${url}"
+                        return 0
+                    fi
+                    sleep 2
+                done
+
+                echo "${label} の起動待ちがタイムアウトしました: ${url}" >&2
+                return 1
+            }
+
+            wait_for_http "otel-collector" "http://127.0.0.1:13133/" 180
+            wait_for_http "prometheus" "http://127.0.0.1:19093/-/ready" 180
+            wait_for_http "grafana" "http://127.0.0.1:13000/api/health" 180
+          '
+
+      - name: Install Keploy CLI
+        run: |
+          curl --silent --location "https://github.com/keploy/keploy/releases/latest/download/keploy_linux_amd64.tar.gz" | tar xz --overwrite -C /tmp
+          sudo install -m 0755 /tmp/keploy /usr/local/bin/keploy
+          keploy --version
+
+      - name: Run Keploy observability in rest mode
+        if: env.KEPLOY_RUN_TARGET == 'both' || env.KEPLOY_RUN_TARGET == 'rest'
+        env:
+          BFF_CALL_MODE: rest
+          RUN_LABEL: rest
+          KEPLOY_OBSERVABILITY_ENABLED: "true"
+        run: bash .github/scripts/run-keploy-grpc-regression.sh
+
+      - name: Run Keploy observability in grpc mode
+        if: env.KEPLOY_RUN_TARGET == 'both' || env.KEPLOY_RUN_TARGET == 'grpc'
+        env:
+          BFF_CALL_MODE: grpc
+          RUN_LABEL: grpc
+          KEPLOY_OBSERVABILITY_ENABLED: "true"
+        run: bash .github/scripts/run-keploy-grpc-regression.sh
+
+      - name: Collect observability snapshots
+        if: always()
+        run: |
+          mkdir -p artifacts/ci/keploy-observability
+
+          curl --silent --show-error "http://127.0.0.1:13000/api/health" \
+            > artifacts/ci/keploy-observability/grafana-health.json
+
+          curl --silent --show-error "http://127.0.0.1:19093/api/v1/label/__name__/values" \
+            > artifacts/ci/keploy-observability/prometheus-metric-names.json
+
+          docker compose -f observability/docker-compose.yml ps \
+            > artifacts/ci/keploy-observability/docker-compose-ps.txt
+
+          docker compose -f observability/docker-compose.yml logs --no-color \
+            > artifacts/ci/keploy-observability/docker-compose-logs.txt
+
+      - name: Upload Keploy observability artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keploy-observability-artifacts
+          if-no-files-found: warn
+          path: |
+            artifacts/ci/keploy-regression
+            artifacts/ci/keploy-observability
+            bff/keploy/reports
+            observability/logs
+
+      - name: Stop observability stack
+        if: always()
+        run: docker compose -f observability/docker-compose.yml down -v

@@ -497,9 +497,9 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 ### 9-2. 実行ファイル
 
 - workflow:
-  - `.github/workflows/keploy-grpc-regression.yml`
+  - `.github/workflows/keploy-regression.yml`
 - 実行スクリプト:
-  - `.github/scripts/run-keploy-grpc-regression.sh`
+  - `.github/scripts/run-keploy-regression.sh`
 
 ### 9-3. workflow の実行概要
 

@@ -67,6 +67,27 @@ receivers:
         severity:
           parse_from: attributes.level
 
+  # Keploy の実行ログを監視する。
+  filelog/keploy:
+    include:
+      - /var/log/scc-api/keploy-rest.log
+      - /var/log/scc-api/keploy-grpc.log
+    start_at: beginning
+    include_file_name: true
+    include_file_path: true
+    resource:
+      service.name: keploy
+      deployment.environment: local
+    operators:
+      - type: regex_parser
+        regex: '^\[(?P<component>[^\]]+)\]\s(?P<message>.*)$'
+      - type: add
+        field: attributes.level
+        value: INFO
+        if: 'attributes["level"] == nil'
+      - type: severity_parser
+        parse_from: attributes.level
+
 processors:
   memory_limiter:
     check_interval: 1s
@@ -126,6 +147,7 @@ service:
         - filelog/bff
         - filelog/rest-backend
         - filelog/grpc-backend
+        - filelog/keploy
       processors:
         - memory_limiter
         - batch

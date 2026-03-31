@@ -3,8 +3,8 @@ name: Keploy Regression
 on:
   pull_request:
     paths:
-      - ".github/workflows/keploy-grpc-regression.yml"
-      - ".github/scripts/run-keploy-grpc-regression.sh"
+      - ".github/workflows/keploy-regression.yml"
+      - ".github/scripts/run-keploy-regression.sh"
       - "bff/**"
       - "rest-backend/**"
       - "grpc-backend/**"
@@ -12,8 +12,8 @@ on:
     branches:
       - main
     paths:
-      - ".github/workflows/keploy-grpc-regression.yml"
-      - ".github/scripts/run-keploy-grpc-regression.sh"
+      - ".github/workflows/keploy-regression.yml"
+      - ".github/scripts/run-keploy-regression.sh"
       - "bff/**"
       - "rest-backend/**"
       - "grpc-backend/**"
@@ -30,7 +30,7 @@ on:
           - rest
 
 jobs:
-  keploy-grpc-regression:
+  keploy-regression:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -68,20 +68,20 @@ jobs:
         env:
           BFF_CALL_MODE: rest
           RUN_LABEL: rest
-        run: bash .github/scripts/run-keploy-grpc-regression.sh
+        run: bash .github/scripts/run-keploy-regression.sh
 
       - name: Run Keploy regression in grpc mode
         if: env.KEPLOY_RUN_TARGET == 'both' || env.KEPLOY_RUN_TARGET == 'grpc'
         env:
           BFF_CALL_MODE: grpc
           RUN_LABEL: grpc
-        run: bash .github/scripts/run-keploy-grpc-regression.sh
+        run: bash .github/scripts/run-keploy-regression.sh
 
       - name: Upload Keploy artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: keploy-grpc-regression-artifacts
+          name: keploy-regression-artifacts
           if-no-files-found: warn
           path: |
             artifacts/ci/keploy-regression
