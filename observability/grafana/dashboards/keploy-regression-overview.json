@@ -204,7 +204,7 @@
                         "uid": "loki"
                     },
                     "editorMode": "code",
-                    "expr": "sum(count_over_time({service_name=\"keploy\"} |= \"\\\"passed\\\": \\\"false\\\"\" [$__range]))",
+                    "expr": "sum(count_over_time({service_name=\"keploy\"} |= \"\\\"passed\\\": \\\"false\\\"\" [$__range])) or (0 * sum(count_over_time({service_name=\"keploy\"}[$__range])))",
                     "instant": true,
                     "queryType": "instant",
                     "refId": "A"
@@ -556,7 +556,7 @@
                         "uid": "loki"
                     },
                     "editorMode": "code",
-                    "expr": "{service_name=\"keploy\"} |= \"実行ラベル: rest\"",
+                    "expr": "{service_name=\"keploy\"} |= \"call-mode=rest\"",
                     "queryType": "range",
                     "refId": "A"
                 }
@@ -594,7 +594,7 @@
                         "uid": "loki"
                     },
                     "editorMode": "code",
-                    "expr": "{service_name=\"keploy\"} |= \"実行ラベル: grpc\"",
+                    "expr": "{service_name=\"keploy\"} |= \"call-mode=grpc\"",
                     "queryType": "range",
                     "refId": "A"
                 }
@@ -737,6 +737,6 @@
     "timezone": "",
     "title": "Keploy 回帰確認 Overview",
     "uid": "keploy-regression-overview",
-    "version": 1,
+    "version": 4,
     "weekStart": ""
 }

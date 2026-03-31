@@ -10,7 +10,9 @@ if (-not (Test-Path $logsDir)) {
 $targets = @(
     "bff.log",
     "rest-backend.log",
-    "grpc-backend.log"
+    "grpc-backend.log",
+    "keploy-rest.log",
+    "keploy-grpc.log"
 )
 
 foreach ($name in $targets) {

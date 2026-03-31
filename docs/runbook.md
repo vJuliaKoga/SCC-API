@@ -545,6 +545,31 @@ sum by (check, condition, run_id, api, call_mode, scenario) (
 - Grafana:
   - 観測確認用
 
+### 9-7. Keploy の観測結果をローカル Grafana で確認する
+
+GitHub Actions 上で実行した `keploy-grafana-observability` workflow の結果を、ローカル Grafana に取り込んで確認したい場合は、artifact を展開して `observability/logs` へコピーする。
+
+1. GitHub Actions から `keploy-observability-artifacts` をダウンロードして展開する
+2. `observability/logs` を初期化する
+3. Keploy log を `observability/logs/keploy-rest.log` / `observability/logs/keploy-grpc.log` へ取り込む
+4. `otel-collector` と `grafana` を再起動する
+
+PowerShell の例:
+
+```powershell
+.\observability\scripts\reset-logs.ps1
+
+.\observability\scripts\import-keploy-artifacts.ps1 `
+  -ArtifactRoot "C:\path\to\keploy-observability-artifacts" `
+  -RestartCollector
+```
+
+補足:
+
+- `-IncludeAppLogs` を付けると、artifact に含まれる `bff.log` / `rest-backend.log` / `grpc-backend.log` も取り込む
+- 取り込み後のダッシュボード確認先は `http://localhost:13000`
+- Keploy 固有パネルが `No data` の場合は、`observability/logs/keploy-rest.log` と `observability/logs/keploy-grpc.log` が存在するかを先に確認する
+
 ---
 
 ## 10. 補足メモ

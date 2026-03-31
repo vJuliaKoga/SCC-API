@@ -73,6 +73,9 @@ receivers:
       - /var/log/scc-api/keploy-rest.log
       - /var/log/scc-api/keploy-grpc.log
     start_at: beginning
+    # Keploy の banner が長く、rest/grpc ログの先頭 1KB が一致しやすい。
+    # fingerprint を広げて別ファイルとして確実に識別する。
+    fingerprint_size: 8kb
     include_file_name: true
     include_file_path: true
     resource:
