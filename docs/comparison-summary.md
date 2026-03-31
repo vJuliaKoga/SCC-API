@@ -1,6 +1,6 @@
 ## 1. 前提
 
-本結果はローカル環境における PJ ベースの比較である。
+本結果はローカル環境における PoC ベースの比較である。
 
 - 計測対象: BFF (`http://localhost:19090`)
 - 比較方式:
@@ -16,6 +16,7 @@
 - `docs/trace-results.md`
 - k6 実行結果
 - Grafana / Prometheus / Tempo / Loki による観測結果
+- Keploy による通常 CI と Grafana 観測確認結果
 
 ※ 最終判断には、CI 等での複数回実行とエラー系を含む再確認が必要。
 
@@ -36,24 +37,7 @@
 - 所感:
   - 読み取り系 API では差は小さい
   - 単回実行のため、環境差や揺らぎの影響を含む可能性がある
-
-#### 2.1.1 比較表テンプレート
-
-| Run | Mode | run_id | avg | med | p90 | p95 | p99 | max | error rate | checks_succeeded | checks_failed | http_reqs | iterations | 判定 | 備考 |
-| --- | ---- | ------ | --- | --- | --- | --- | --- | --- | ---------- | ---------------- | ------------- | --------- | ---------- | ---- | ---- |
-| 1   | REST |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 2   | REST |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 3   | REST |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 1   | gRPC |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 2   | gRPC |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 3   | gRPC |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-
-#### 2.1.2 集計表テンプレート
-
-| Mode | 採用 run 数 | avg 平均 | med 平均 | p90 平均 | p95 平均 | p99 平均 | max 最大 | error rate 平均 | checks_succeeded 平均 | checks_failed 平均 | http_reqs 平均 | iterations 平均 | 備考 |
-| ---- | ----------- | -------- | -------- | -------- | -------- | -------- | -------- | --------------- | --------------------- | ------------------ | -------------- | --------------- | ---- |
-| REST |             |          |          |          |          |          |          |                 |                       |                    |                |                 |      |
-| gRPC |             |          |          |          |          |          |          |                 |                       |                    |                |                 |      |
+  - benchmark workflow の追加により、今後は GitHub Actions 上でも同条件の再実行と artifact 比較を継続しやすくなった
 
 ---
 
@@ -70,28 +54,11 @@
   - 書き込み系 API では gRPC がやや優位
   - ただし Grafana 上の rate 系集計は Collector 経由で揺れがあり、正式比較値は k6 summary を採用する
   - 異常系列が混在した run は除外して比較する必要がある
-
-#### 2.2.1 比較表テンプレート
-
-| Run | Mode | run_id | avg | med | p90 | p95 | p99 | max | error rate | checks_succeeded | checks_failed | http_reqs | iterations | 判定 | 備考 |
-| --- | ---- | ------ | --- | --- | --- | --- | --- | --- | ---------- | ---------------- | ------------- | --------- | ---------- | ---- | ---- |
-| 1   | REST |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 2   | REST |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 3   | REST |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 1   | gRPC |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 2   | gRPC |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-| 3   | gRPC |        |     |     |     |     |     |     |            |                  |               |           |            | 採用 |      |
-
-#### 2.2.2 集計表テンプレート
-
-| Mode | 採用 run 数 | avg 平均 | med 平均 | p90 平均 | p95 平均 | p99 平均 | max 最大 | error rate 平均 | checks_succeeded 平均 | checks_failed 平均 | http_reqs 平均 | iterations 平均 | 備考 |
-| ---- | ----------- | -------- | -------- | -------- | -------- | -------- | -------- | --------------- | --------------------- | ------------------ | -------------- | --------------- | ---- |
-| REST |             |          |          |          |          |          |          |                 |                       |                    |                |                 |      |
-| gRPC |             |          |          |          |          |          |          |                 |                       |                    |                |                 |      |
+  - 通常の k6 benchmark workflow では summary.json / summary.txt / summary.md を artifact として回収する構成にし、比較値の正本を明確にした
 
 ---
 
-## 3. 可観測性比較（OpenTelemetry / Jaeger）
+## 3. 可観測性比較（OpenTelemetry / Jaeger / Grafana）
 
 ### 3.1 GET /api/users/{id} の trace 観測結果
 
@@ -134,64 +101,96 @@
 - 一方で、k6 の checks 系メトリクスは run により `condition="zero"` と `condition="nonzero"` が混在するケースがあった
 - そのため、Grafana 上で error rate や check success rate を単純算出すると、k6 summary と一致しない場合があった
 - 現時点で安定確認できたのは、raw checks をそのまま表示するクエリである
+- そのため、k6 は「比較値の正本は artifact」「Grafana は観測確認」という整理にした
 
-### 3.5 可観測性の所感
+### 3.5 Keploy / Grafana 観測の見え方
+
+- Keploy observability workflow を追加し、observability stack を起動したうえで Keploy を実行できるようにした
+- Keploy の実行ログを Loki に取り込み、Grafana dashboard `Keploy 回帰確認 Overview` で確認できるようにした
+- dashboard では以下を 1 画面で確認できる
+  - complete runs
+  - passed testcase lines
+  - failed testcase lines
+  - BFF requests
+  - BFF request count
+  - backend request count
+  - Keploy logs
+  - Keploy rest / grpc run headers
+  - BFF / REST backend / gRPC backend logs
+- Grafana 上の確認では、complete runs は 4、passed testcase lines は 32、failed testcase lines は 0 だった
+- selected range の request count では、`GET /api/users/{id}` の 200 / 404、`POST /api/orders` の 201 / 400 を確認できた
+- 一方で Prometheus scrape による `GET /actuator/prometheus` が多く含まれるため、API 本体だけを見たい場合は除外条件を別途検討した方がよい
+
+### 3.6 可観測性の所感
 
 - REST / gRPC ともに trace 自体は問題なくつながっている
 - gRPC は service / method 名が span に現れるため、操作単位で追いやすい
 - REST は backend 側 route は読みやすいが、BFF outbound span 名は `GET` のみで簡素
 - k6 の観測統合により、負荷試験結果とアプリ観測を同じ基盤で見られるようになった点は有益
-- 一方で、PJ 段階では k6 メトリクスの rate 系集計は不安定であり、Grafana は観測確認用途に寄せるのが妥当
+- Keploy についても、実行ログとアプリログ、request count を Grafana で横断確認できるようになり、失敗時の切り分けがしやすくなった
+- 一方で、PoC 段階では比較や回帰判定の正本はそれぞれ別に持つ方が安全である
+  - k6:
+    - 正本は summary artifact
+  - Keploy:
+    - 正本は workflow / Keploy report
+  - Grafana:
+    - 観測確認と失敗原因分析
 
-### 4. Bruno による外部 API 確認の要約
+---
 
-Bruno を用いた手動確認では、BFF の `app.call-mode=rest` / `app.call-mode=grpc` を切り替えながら、`GET /api/users/{id}` と `POST /api/orders` の外部 API の見え方を比較した。
+## 4. 回帰確認比較（Keploy）
 
-初回確認では、`GET /api/users/{id}` の正常系に返却値差分があり、また両 API のエラー時の HTTP ステータスとレスポンス本文にも差分があることを確認した。
-その後、Bruno で確認した差分をもとに実装を調整し、再確認を実施した。
+### 4.1 通常 CI の位置づけ
 
-再確認の結果、`GET /api/users/{id}` と `POST /api/orders` の正常系、および主要バリデーションエラー系について、REST / gRPC の外部仕様を揃えられた。
-これにより、BFF の外部 API は比較対象として扱いやすくなり、今後は性能・可観測性・Tusk Drift を用いた回帰確認へ進めやすい状態になった。
+- `bff/keploy/test-set-rest` を正本として、gRPC 実装が BFF の外部 API 契約を壊していないかを確認する
+- `--mocking=false` 前提で backend 実起動込みの統合回帰確認として扱う
+- 通常運用では `rest -> grpc` を直列実行する
+
+### 4.2 成立したこと
+
+- GitHub Actions 上で `rest` / `grpc` の直列実行に成功した
+- `test-set-rest` を用いた Keploy 実行で 8 件 PASS を確認した
+- `app.call-mode=rest` と `app.call-mode=grpc` の両方で同一 test-set を基準に確認できた
+
+### 4.3 Grafana 観測確認まで含めた整理
+
+- 通常 CI:
+  - 回帰判定の正本
+- Keploy observability workflow:
+  - Grafana 上でログと request count を横断確認する補助用途
+- この分離により、「契約を壊したか」と「なぜそうなったか」を分けて扱えるようになった
 
 ---
 
 ## 5. 全体所感
 
 - 両モードとも、k6 summary ベースでは正常系チェックは通過している
-- 読み取り系 API では、k6 ベースでは性能差は小さい一方、Bruno による初回確認では外部 API の返却値差分とエラー時の見え方差分が見つかった
-- 書き込み系 API では、k6 および Bruno の正常系確認の範囲では gRPC がやや低レイテンシとなる傾向が見られた
-- その後の実装修正と Bruno 再確認により、`GET /api/users/{id}` と `POST /api/orders` の正常系および主要バリデーションエラー系について、REST / gRPC の外部仕様を揃えられた
+- 読み取り系 API では性能差は小さい
+- 書き込み系 API では gRPC がやや低レイテンシ
 - 可観測性の観点では、gRPC は method 単位で追いやすく、REST は route 単位で把握しやすい
-- 観測基盤の統合により、trace / logs / metrics / k6 を横断して確認できる状態になった
+- 観測基盤の統合により、trace / logs / metrics / k6 / Keploy を横断して確認できる状態になった
 - ただし Collector 経由の k6 メトリクスは一部 run で揺れがあり、比較値の正本としては k6 summary を使う方が妥当である
-- Bruno による手動確認は、性能比較の正本取得ではなく、BFF の外部 API 整合性確認と手動再現性確認に有効だった
-- Keploy については、REST 基準で整備した `test-set-rest` を使い、GitHub Actions 上で `rest -> grpc` の順に直列実行する通常 CI を成立させた
-- これにより、基準ケース自体の健全性確認と、gRPC 実装が BFF の外部 API 契約を壊していないかの回帰確認を、同一 workflow 内で順番に確認できるようになった
-- `--mocking=false` 前提のため pure replay ではないが、そのぶん backend 実起動込みで外部 API 契約の差分を検知できる構成になった
-- PoC としては、性能・可観測性・手動確認に加えて、通常 CI による契約回帰確認の経路も成立したといえる
+- Keploy についても、Grafana は失敗原因分析に有効だが、回帰判定の正本は workflow / report に置くのが妥当である
 
 ---
 
 ## 6. 現時点の暫定結論
 
 - 性能面では、用途によって優位性が分かれる
-  - 読み取り系: k6 ベースでは差は小さい
+  - 読み取り系: 差は小さい
   - 書き込み系: gRPC がやや有利
 - 可観測性の面では、gRPC は span 名の明瞭さによりやや優位
-- 初回の Bruno 確認では、`GET /api/users/{id}` の返却値差分と、両 API のエラー時外部仕様差分が確認された
-- ただし、差分をもとに実装修正を行い、再確認の結果、比較対象 API の正常系および主要バリデーションエラー系については REST / gRPC の外部仕様を揃えられた
-- これにより、BFF の外部 API は比較対象として扱いやすくなり、今後の Tusk Drift や回帰確認に進めやすい状態になった
-- 一方で、k6 メトリクスの Collector 経由集計は一部 run で不安定さがあるため、比較の正式値は引き続き k6 summary を採用する
-- 現段階では、内部サービス間通信としての gRPC には前向きな材料が揃いつつあり、今後は外部 API 整合性を保った状態で複数回実行による安定性確認を継続したい
-- さらに、REST 基準の Keploy テストケースを使った通常 CI を GitHub Actions 上で成立させ、`rest` / `grpc` の直列実行まで確認できた
-- これにより、「CI で gRPC が契約を壊したら検知する」ための最小構成は PoC として成立した
-- 今後の運用では、`bff/keploy/test-set-rest` を clean な正本として維持することが、Keploy CI の信頼性を支える前提となる
+- 観測基盤統合そのものは成立しており、PoC の目的は達成できている
+- 一方で、k6 メトリクスの Collector 経由集計は一部 run で不安定さがあるため、比較の正式値は k6 summary を採用する
+- Keploy については、通常 CI による契約回帰確認に加え、Grafana 上で実行ログと request count を観測できる補助導線まで整備できた
+- 現段階では、内部サービス間通信としての gRPC には前向きな材料が揃いつつあるが、安定性確認のため複数回実行を継続したい
 
 ---
 
 ## 7. Next Action
 
-- Keploy 通常 CI で、意図的に gRPC 実装を壊して赤になることを確認する
-- `rest -> grpc` 直列実行時のログ / artifact を見直し、失敗原因を backend 起動不良・BFF 起動不良・Keploy 差分に切り分けやすくする
-- `bff/keploy/test-set-rest` の更新手順を固定し、`kind: Generic` を混入させない運用ルールを明文化する
-- 性能比較の再実行と並行して、Keploy CI を通常変更フローへ組み込めるかを確認する
+- k6 benchmark を users / orders それぞれ複数回実行し、artifact ベースで比較表を拡充する
+- `GET /actuator/prometheus` を除外した request count クエリを dashboard に追加し、API 本体の挙動を見やすくする
+- Keploy dashboard に run label や workflow run 単位の絞り込みを追加できるか検討する
+- エラー系 trace を取得し、REST / gRPC の見え方を比較する
+- warm 状態での再計測を行い、外れ値の再現性を確認する
