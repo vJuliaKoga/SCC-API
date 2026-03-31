@@ -78,15 +78,6 @@ receivers:
     resource:
       service.name: keploy
       deployment.environment: local
-    operators:
-      - type: regex_parser
-        regex: '^\[(?P<component>[^\]]+)\]\s(?P<message>.*)$'
-      - type: add
-        field: attributes.level
-        value: INFO
-        if: 'attributes["level"] == nil'
-      - type: severity_parser
-        parse_from: attributes.level
 
 processors:
   memory_limiter:

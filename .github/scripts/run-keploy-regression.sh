@@ -139,6 +139,18 @@ print_active_test_set_summary() {
     find "$test_set_dir/tests" -maxdepth 1 -type f -name "*.yaml" | sort
 }
 
+write_keploy_observability_header() {
+    if [[ "$KEPLOY_OBSERVABILITY_ENABLED" != "true" ]]; then
+        return 0
+    fi
+
+    {
+        echo "[keploy-ci] 実行ラベル: ${RUN_LABEL}"
+        echo "[keploy-ci] BFF call-mode: ${BFF_CALL_MODE}"
+        echo "[keploy-ci] 使用する test-set: ${ACTIVE_TEST_SET}"
+    } >> "$KEPLOY_LOG"
+}
+
 start_rest_backend() {
     print_info "rest-backend を起動します。"
     (
@@ -218,6 +230,8 @@ start_backend_for_call_mode
 # observability workflow では APP_LOG_FILE を固定し、Collector が拾える位置へ出力する。
 BFF_COMMAND="bash -lc 'USER_HOME=\"\$(getent passwd \"\${SUDO_USER:-\$USER}\" | cut -d: -f6)\"; export GRADLE_USER_HOME=\"\${GRADLE_USER_HOME:-\$USER_HOME/.gradle}\"; if [[ \"${KEPLOY_OBSERVABILITY_ENABLED}\" == \"true\" ]]; then export APP_LOG_FILE=\"../observability/logs/bff.log\"; export APP_LOG_FILE_PATTERN=\"../observability/logs/bff.%d{yyyy-MM-dd}.%i.log\"; fi; ./gradlew --no-daemon bootRun --args=\"--app.call-mode=${BFF_CALL_MODE}\"'"
 
+write_keploy_observability_header
+
 print_info "Keploy で ${ACTIVE_TEST_SET} を ${BFF_CALL_MODE} 実装に対して実行します。"
 (
     cd "$BFF_DIR"
@@ -227,7 +241,7 @@ print_info "Keploy で ${ACTIVE_TEST_SET} を ${BFF_CALL_MODE} 実装に対し�
         --delay "$KEPLOY_DELAY" \
         --mocking=false \
         -c "$BFF_COMMAND" \
-        2>&1 | tee "$KEPLOY_LOG"
+        2>&1 | tee -a "$KEPLOY_LOG"
 )
 
 if [[ "$KEPLOY_OBSERVABILITY_ENABLED" == "true" ]]; then
